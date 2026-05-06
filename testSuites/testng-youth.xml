@@ -2,30 +2,33 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 
 <!--
-  Default suite - runs Registration + Profile sequentially on same browser.
+  Youth Module Suite - runs Registration then Profile sequentially on SAME browser.
   
-  Run: mvn test -Denv=prod -Dbrowser=firefox
-  
-  For all modules: mvn test -Dsurefire.suiteXmlFiles=testSuites/testng-all-modules.xml
+  Run with:
+    mvn test -Denv=prod -Dbrowser=firefox -Dsurefire.suiteXmlFiles=testSuites/testng-youth.xml
+    mvn test -Denv=beta -Dbrowser=chrome -Dsurefire.suiteXmlFiles=testSuites/testng-youth.xml
 -->
-<suite name="MYBharat Smoke Suite" parallel="false" verbose="1">
+<suite name="Youth Module" parallel="false" verbose="1">
 
     <listeners>
         <listener class-name="com.mybharat.listeners.TestListeners"/>
     </listeners>
 
+    <!-- Step 1: Registration (opens browser, registers user) -->
     <test name="Youth Registration">
         <classes>
             <class name="com.mybharat.tests.youth.YouthRegistrationTest"/>
         </classes>
     </test>
 
+    <!-- Step 2: Certificate Verification (same browser, verifies + downloads certificate) -->
     <test name="Registration Certificate Verification">
         <classes>
             <class name="com.mybharat.tests.youth.RegistrationCertificateVerificationTest"/>
         </classes>
     </test>
 
+    <!-- Step 3: Quiz Attempt (same browser, attempts competitive quiz) -->
     <test name="Quiz Attempt">
         <classes>
             <class name="com.mybharat.tests.youth.QuizAttemptTest"/>

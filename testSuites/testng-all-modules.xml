@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+  ALL MODULES - Runs all modules SEQUENTIALLY on the SAME browser.
+  
+  Run with:
+    mvn test -Denv=beta -Dbrowser=chrome -Dsurefire.suiteXmlFiles=testSuites/testng-all-modules.xml
+    mvn test -Denv=prod -Dbrowser=firefox -Dsurefire.suiteXmlFiles=testSuites/testng-all-modules.xml
+  
+  Execution order:
+    1. Youth Registration
+    2. Youth Profile + Quiz
+    3. Login (TODO)
+    4. CV Builder (TODO)
+    5. Organisation Creation (TODO)
+    6. Join Organisation (TODO)
+-->
+<suite name="MYBharat All Modules" parallel="false" verbose="1">
+
+    <listeners>
+        <listener class-name="com.mybharat.listeners.TestListeners"/>
+    </listeners>
+
+    <!-- Module 1: Youth Registration -->
+    <test name="Youth Registration">
+        <classes>
+            <class name="com.mybharat.tests.youth.YouthRegistrationTest"/>
+        </classes>
+    </test>
+
+    <!-- Module 2: Registration Certificate Verification -->
+    <test name="Registration Certificate Verification">
+        <classes>
+            <class name="com.mybharat.tests.youth.RegistrationCertificateVerificationTest"/>
+        </classes>
+    </test>
+
+    <!-- Module 3: Quiz Attempt -->
+    <test name="Quiz Attempt">
+        <classes>
+            <class name="com.mybharat.tests.youth.QuizAttemptTest"/>
+        </classes>
+    </test>
+
+    <!-- Module 3: Login (TODO - create LoginTest.java) -->
+    <!--
+    <test name="Login">
+        <classes>
+            <class name="com.mybharat.tests.login.LoginTest"/>
+        </classes>
+    </test>
+    -->
+
+    <!-- Module 4: CV Builder (TODO) -->
+    <!--
+    <test name="CV Builder">
+        <classes>
+            <class name="com.mybharat.tests.cvbuilder.CVBuilderTest"/>
+        </classes>
+    </test>
+    -->
+
+    <!-- Module 5: Organisation Creation (TODO) -->
+    <!--
+    <test name="Organisation Creation">
+        <classes>
+            <class name="com.mybharat.tests.organisation.OrgCreationTest"/>
+        </classes>
+    </test>
+    -->
+
+    <!-- Module 6: Join Organisation (TODO) -->
+    <!--
+    <test name="Join Organisation">
+        <classes>
+            <class name="com.mybharat.tests.organisation.JoinOrgTest"/>
+        </classes>
+    </test>
+    -->
+
+</suite>
