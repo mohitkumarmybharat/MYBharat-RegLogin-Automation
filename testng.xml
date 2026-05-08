@@ -2,9 +2,9 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 
 <!--
-  Default suite - runs Registration + Profile sequentially on same browser.
+  Default suite - Registration → Profile → Certificate → Quiz on same browser.
   
-  Run: mvn test -Denv=prod -Dbrowser=firefox
+  Run: mvn test -Denv=beta -Dbrowser=chrome
   
   For all modules: mvn test -Dsurefire.suiteXmlFiles=testSuites/testng-all-modules.xml
 -->
@@ -17,6 +17,12 @@
     <test name="Youth Registration">
         <classes>
             <class name="com.mybharat.tests.youth.YouthRegistrationTest"/>
+        </classes>
+    </test>
+
+    <test name="Youth Profile Completion">
+        <classes>
+            <class name="com.mybharat.tests.youth.YouthProfileTest"/>
         </classes>
     </test>
 
