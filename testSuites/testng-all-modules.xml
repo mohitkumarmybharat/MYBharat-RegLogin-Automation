@@ -10,11 +10,12 @@
   
   Execution order:
     1. Youth Registration
-    2. Youth Profile + Quiz
-    3. Login (TODO)
-    4. CV Builder (TODO)
-    5. Organisation Creation (TODO)
-    6. Join Organisation (TODO)
+    2. Registration Certificate Verification
+    3. Quiz Attempt
+    4. Login (TODO)
+    5. CV Builder (TODO)
+    6. Organisation Creation (TODO)
+    7. Join Organisation (TODO)
 -->
 <suite name="MYBharat All Modules" parallel="false" verbose="1">
 
@@ -43,7 +44,7 @@
         </classes>
     </test>
 
-    <!-- Module 3: Login (TODO - create LoginTest.java) -->
+    <!-- Module 4: Login (TODO) -->
     <!--
     <test name="Login">
         <classes>
@@ -52,7 +53,7 @@
     </test>
     -->
 
-    <!-- Module 4: CV Builder (TODO) -->
+    <!-- Module 5: CV Builder (TODO) -->
     <!--
     <test name="CV Builder">
         <classes>
@@ -61,7 +62,7 @@
     </test>
     -->
 
-    <!-- Module 5: Organisation Creation (TODO) -->
+    <!-- Module 6: Organisation Creation (TODO) -->
     <!--
     <test name="Organisation Creation">
         <classes>
@@ -70,7 +71,7 @@
     </test>
     -->
 
-    <!-- Module 6: Join Organisation (TODO) -->
+    <!-- Module 7: Join Organisation (TODO) -->
     <!--
     <test name="Join Organisation">
         <classes>
