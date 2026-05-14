@@ -13,10 +13,13 @@ import com.mybharat.listeners.TestListeners;
 import com.mybharat.pages.youth.RegistrationCertificateVerificationPage;
 
 /**
- * CertificateVerificationTest - Verifies registration certificate download.
+ * RegistrationCertificateVerificationTest - Verifies registration certificate download.
  * 
- * Runs on the SAME browser session after YouthRegistrationTest.
- * The user is already logged in from registration.
+ * Runs on the SAME browser session after YouthProfileTest.
+ * The user is already logged in and on the profile page.
+ * The certificate is in the "My Certifications" section on the About tab.
+ * 
+ * Flow: Scroll to certifications → Click card → Modal opens → Download PNG → Close modal
  */
 @Listeners(TestListeners.class)
 public class RegistrationCertificateVerificationTest extends BaseTest {
@@ -32,11 +35,11 @@ public class RegistrationCertificateVerificationTest extends BaseTest {
 
     @Test(priority = 1, groups = {"smoke", "certificate"}, retryAnalyzer = Retry.class)
     public void verifyRegistrationCertificateDownload() throws Exception {
-        log.info("Starting: Registration Certificate Verification for: {}", YouthRegistrationTest.registeredEmail);
+        log.info("Starting: Registration Certificate Verification");
 
         boolean downloaded = certPage.downloadCertificate();
 
-        Assert.assertTrue(downloaded, "Certificate should be downloaded successfully");
-        log.info("✅ Registration certificate verified and downloaded");
+        Assert.assertTrue(downloaded, "Certificate download should be triggered successfully");
+        log.info("✅ Registration certificate download verified");
     }
 }

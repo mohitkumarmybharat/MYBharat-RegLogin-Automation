@@ -35,7 +35,14 @@
         </classes>
     </test>
 
-    <!-- Step 4: Basic Info + Extract Email -->
+    <!-- Step 4: Registration Certificate Download -->
+    <test name="Registration Certificate Verification">
+        <classes>
+            <class name="com.mybharat.tests.youth.RegistrationCertificateVerificationTest"/>
+        </classes>
+    </test>
+
+    <!-- Step 5: Basic Info + Extract Email -->
     <test name="Youth Basic Info">
         <classes>
             <class name="com.mybharat.tests.youth.YouthBasicInfoTest"/>
