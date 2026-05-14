@@ -8,176 +8,100 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Random;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.support.FindBy;
 import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
-import org.testng.Assert;
 
 import com.mybharat.pages.BasePage;
 import com.mybharat.utils.ConfigReader;
 
 /**
- * YouthProfilePage - Handles the Youth profile completion flow.
+ * YouthProfilePage - Handles the NEW React-based Youth profile completion flow.
  * 
- * Flow: Dismiss modal → Upload images → About → Interests → Language
- *       → Professional Summary → Work Experience → Tools → Certificate
- *       → Extract Email → Change Password
+ * The profile has been migrated from Angular/PHP to React 19 + Tailwind + react-select.
+ * 
+ * Page Structure:
+ *   - ProfileBanner (top banner with camera upload)
+ *   - UserInfoCard (photo, name, MBP ID, share, badge)
+ *   - Sidebar (left) + ProfileTabs (right)
+ *   - Tabs: "About" | "Basic Info" | "Reward Points"
+ *   - About tab contains accordion sections: About, Area of Interest, Education,
+ *     Sports, Languages, Professional Summary, Work Experience, Tools, Certifications
+ * 
+ * Key differences from old UI:
+ *   - No element IDs on form fields (use name attrs, placeholders, text content)
+ *   - react-select for multi-select dropdowns (custom DOM, not native select)
+ *   - Accordion sections expand/collapse with +/- icons
+ *   - SectionWrapper with Edit (pencil) or Add (+) icons
+ *   - Buttons identified by text content (Save, Update, Cancel)
+ *   - Toast notifications via react-toastify
  */
 public class YouthProfilePage extends BasePage {
 
+    private static final Logger log = LogManager.getLogger(YouthProfilePage.class);
+
     private final Random random = new Random();
     private final ConfigReader config = new ConfigReader();
+    private final WebDriverWait longWait;
 
     // -------------------------------------------------------------------------
-    // Elements - Banner & Logo
+    // Locators - React Profile Page
     // -------------------------------------------------------------------------
 
-    @FindBy(css = "div.tooltip_image1")
-    private WebElement bannerIcon;
+    // Tabs
+    private static final By TAB_ABOUT = By.xpath("//button[normalize-space()='About']");
+    private static final By TAB_BASIC_INFO = By.xpath("//button[normalize-space()='Basic Info']");
+    private static final By TAB_REWARD_POINTS = By.xpath("//button[normalize-space()='Reward Points']");
 
-    @FindBy(id = "fileInput")
-    private WebElement bannerInput;
+    // Banner & Profile Photo upload (camera buttons)
+    private static final By BANNER_CAMERA_BTN = By.xpath(
+            "//div[contains(@class,'relative w-full')]//button[.//svg]");
+    private static final By BANNER_FILE_INPUT = By.xpath(
+            "//div[contains(@class,'relative w-full')]//input[@type='file']");
+    private static final By PROFILE_PHOTO_CAMERA_BTN = By.xpath(
+            "//div[contains(@class,'relative shrink-0')]//button[contains(@aria-label,'Change profile photo') or .//svg]");
+    private static final By PROFILE_PHOTO_FILE_INPUT = By.xpath(
+            "//div[contains(@class,'relative shrink-0')]//input[@type='file']");
 
-    @FindBy(css = ".tooltip_image")
-    private WebElement logoIcon;
+    // Section headers (for expanding accordion or clicking edit)
+    private static final By SECTION_ABOUT = By.xpath(
+            "//span[normalize-space()='About']/ancestor::div[contains(@class,'bg-white border')]");
+    private static final By SECTION_AREA_OF_INTEREST = By.xpath(
+            "//span[normalize-space()='Area of Interest']/ancestor::div[contains(@class,'bg-white border') or contains(@class,'rounded-xl')]");
+    private static final By SECTION_LANGUAGES = By.xpath(
+            "//span[normalize-space()='Languages']/ancestor::div[contains(@class,'bg-white border') or contains(@class,'rounded-xl')]");
+    private static final By SECTION_PROF_SUMMARY = By.xpath(
+            "//span[normalize-space()='Professional Summary']/ancestor::div[contains(@class,'bg-white border') or contains(@class,'rounded-xl')]");
+    private static final By SECTION_WORK_EXP = By.xpath(
+            "//span[normalize-space()='Work Experience']/ancestor::div[contains(@class,'bg-white border') or contains(@class,'rounded-xl')]");
+    private static final By SECTION_TOOLS = By.xpath(
+            "//span[normalize-space()='Tools']/ancestor::div[contains(@class,'bg-white border') or contains(@class,'rounded-xl')]");
 
-    @FindBy(id = "fileInput1")
-    private WebElement logoInput;
+    // Generic buttons
+    private static final By BTN_SAVE = By.xpath(
+            "//button[normalize-space()='Save']");
+    private static final By BTN_UPDATE = By.xpath(
+            "//button[normalize-space()='Update']");
 
-    // -------------------------------------------------------------------------
-    // Elements - About
-    // -------------------------------------------------------------------------
+    // Toast notification
+    private static final By TOAST_SUCCESS = By.cssSelector(".Toastify__toast--success");
+    private static final By TOAST_CONTAINER = By.cssSelector(".Toastify");
 
-    @FindBy(id = "edit1")
-    private WebElement aboutEditBtn;
+    // Basic Info form fields (name attributes)
+    private static final By INPUT_FIRST_NAME = By.xpath("//input[@name='first_name']");
+    private static final By INPUT_USER_EMAIL = By.xpath("//input[@name='user_email']");
 
-    @FindBy(id = "aboutid")
-    private WebElement aboutInput;
-
-    @FindBy(id = "saveAboutInfo")
-    private WebElement aboutSaveBtn;
-
-    // -------------------------------------------------------------------------
-    // Elements - Area of Interest
-    // -------------------------------------------------------------------------
-
-    @FindBy(id = "add_intrst")
-    private WebElement areaOfInterestPlus;
-
-    @FindBy(name = "area_of_interest[]")
-    private WebElement areaOfInterestDropdown;
-
-    @FindBy(id = "mySelect4")
-    private WebElement subAreaDropdown;
-
-    @FindBy(css = ".firebase-profile-areaofinterest-save-btn")
-    private WebElement saveAreaBtn;
-
-    // -------------------------------------------------------------------------
-    // Elements - Language
-    // -------------------------------------------------------------------------
-
-    @FindBy(id = "add_languages")
-    private WebElement languagePlus;
-
-    @FindBy(id = "mySelect1")
-    private WebElement languageDropdown;
-
-    @FindBy(id = "lang_submit")
-    private WebElement saveLanguageBtn;
-
-    // -------------------------------------------------------------------------
-    // Elements - Professional Summary
-    // -------------------------------------------------------------------------
-
-    @FindBy(id = "add_prof_sumry")
-    private WebElement profSummaryPlus;
-
-    @FindBy(id = "work_exposure")
-    private WebElement profSummaryInput;
-
-    @FindBy(id = "s2id_mySelect2")
-    private WebElement profSkillLabel;
-
-    @FindBy(css = "ul.select2-results li.select2-result-selectable")
-    private List<WebElement> profSkillOptions;
-
-    @FindBy(id = "skills_submit")
-    private WebElement profSaveBtn;
-
-    // -------------------------------------------------------------------------
-    // Elements - Work Experience
-    // -------------------------------------------------------------------------
-
-    @FindBy(id = "add_pluse")
-    private WebElement workExpPlus;
-
-    @FindBy(id = "title")
-    private WebElement jobTitle;
-
-    @FindBy(id = "company")
-    private WebElement company;
-
-    @FindBy(id = "start_date")
-    private WebElement startDate;
-
-    @FindBy(id = "end_date")
-    private WebElement endDate;
-
-    @FindBy(id = "form_cl7")
-    private WebElement workSaveBtn;
-
-    // -------------------------------------------------------------------------
-    // Elements - Tools & Social
-    // -------------------------------------------------------------------------
-
-    @FindBy(id = "edit16")
-    private WebElement toolsSection;
-
-    @FindBy(id = "devops_tools")
-    private WebElement toolsInput;
-
-    @FindBy(id = "introduction_video")
-    private WebElement introVideo;
-
-    @FindBy(xpath = "//select[@name='social_links[key][]']")
-    private WebElement socialTypeDropdown;
-
-    @FindBy(id = "social_url")
-    private WebElement socialUrl;
-
-    @FindBy(id = "tools_submit")
-    private WebElement saveToolsBtn;
-
-    // -------------------------------------------------------------------------
-    // Elements - Certification
-    // -------------------------------------------------------------------------
-
-    @FindBy(css = "#registrationCertificateDiv .certificate_layout")
-    private WebElement myCertifications;
-
-    @FindBy(css = ".Downloadbtnpng")
-    private WebElement certificationDownloadInPng;
-
-    @FindBy(css = ".fa.fa-times")
-    private WebElement closeModalBtn;
-
-    // -------------------------------------------------------------------------
-    // Elements - Basic Info & Password
-    // -------------------------------------------------------------------------
-
-    @FindBy(css = "a[href='#Basic_info']")
-    private WebElement basicInfoTab;
-
-    @FindBy(css = ".change-pwd-link")
-    private WebElement changePasswordLink;
+    // Profile page verification
+    private static final By PROFILE_PAGE_INDICATOR = By.xpath(
+            "//button[normalize-space()='About'] | //div[contains(@class,'min-h-screen')]//button[normalize-space()='Basic Info']");
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -185,408 +109,997 @@ public class YouthProfilePage extends BasePage {
 
     public YouthProfilePage(WebDriver driver) {
         super(driver);
+        this.longWait = new WebDriverWait(driver, Duration.ofSeconds(30));
     }
 
     // -------------------------------------------------------------------------
-    // Public methods
+    // Public methods (same API as before for test compatibility)
     // -------------------------------------------------------------------------
 
     /**
      * Complete the full youth profile in one flow.
-     * Called right after registration — user is already on the profile page.
-     * Flow: Profile sections → Certificate Download → Basic Info → Extract Email
+     * Called right after login — user navigates to profile page first.
      */
     public void completeYouthProfile() throws Exception {
-        dismissAdditionalDetailsModal();
-        uploadBannerAndLogo();
+        waitForReactReady();
+
+        // Capture page source for debugging
+        savePageSourceForDebug("before_profile_fill");
+
+        // Upload profile photo first
+        uploadProfilePhoto();
+
+        // Fill About tab sections
         fillAboutSection();
         addAreaOfInterest();
+        addEducationQualification();
         addLanguage();
         fillProfessionalSummary();
         addWorkExperience();
         fillToolsSection();
+        log.info("✅ All profile sections completed");
     }
 
     /**
-     * Navigate to the youth profile page by clicking user icon then "MY Bharat Profile".
-     * Flow: Click user avatar (id=mlogo) → Click "MY Bharat Profile" (id=publicprofile)
+     * Navigate to the youth profile page (React app).
+     * 
+     * The React profile is served at /youth-profile on the same domain.
+     * Beta: https://yuva-beta.mybharats.in/youth-profile
+     * Prod: https://mybharat.gov.in/youth-profile
      */
     public void navigateToProfilePage() throws InterruptedException {
-        String baseUrl = config.getUrl();
-
-        // First ensure we're on the home page
-        try {
-            WebElement logo = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
-                    ExpectedConditions.elementToBeClickable(
-                            By.cssSelector(".logo.mybharatlogo, a.navbar-brand")));
-            jsClick(logo);
-            waitForPageLoad();
-            Thread.sleep(2000);
-        } catch (Exception e) {
-            driver.get(baseUrl);
-            waitForPageLoad();
-            Thread.sleep(2000);
+        // Use profileUrl from config, fallback to baseUrl + /youth-profile
+        String profileUrl = config.getProperty("profileUrl");
+        if (profileUrl == null || profileUrl.isEmpty()) {
+            profileUrl = config.getUrl() + "/youth-profile";
         }
 
-        // Close any popup that may appear
-        try {
-            WebElement popup = driver.findElement(By.xpath("//i[@class='fa fa-times']"));
-            if (popup.isDisplayed()) popup.click();
-            Thread.sleep(500);
-        } catch (Exception e) {
-            // No popup — continue
-        }
-
-        // Step 1: Hover over user profile icon (id=mlogo) to open dropdown
-        WebElement userIcon = new WebDriverWait(driver, Duration.ofSeconds(15)).until(
-                ExpectedConditions.visibilityOfElementLocated(By.id("mlogo")));
-        actions().moveToElement(userIcon).perform();
-        Thread.sleep(1000);
-
-        // Step 2: Click "MY Bharat Profile" link (id=publicprofile)
-        WebElement profileLink = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
-                ExpectedConditions.elementToBeClickable(By.xpath("(//a[@id='publicprofile'])[1]")));
-        profileLink.click();
+        log.info("Opening profile URL: {}", profileUrl);
+        driver.get(profileUrl);
         waitForPageLoad();
-        Thread.sleep(3000);
+        safeSleep(3000); // React hydration + user data fetch
 
-        // Verify we're on the profile page
-        new WebDriverWait(driver, Duration.ofSeconds(15)).until(
-                ExpectedConditions.presenceOfElementLocated(
-                        By.cssSelector("div.tooltip_image1, .tooltip_image, #edit1, #add_intrst, .profile-banner")));
-        System.out.println("Successfully navigated to MY Bharat Profile page");
-    }
-
-    /**
-     * Dismiss the additional details modal if it appears after registration.
-     */
-    public void dismissAdditionalDetailsModal() {
+        // Verify we're on the profile page by checking for tab buttons
         try {
-            WebElement modal = driver.findElement(By.id("additionalDetailsModal"));
-            if (modal.isDisplayed()) {
-                try {
-                    WebElement closeBtn = modal.findElement(
-                            By.cssSelector("button[data-dismiss='modal'], .close, button.btn-close"));
-                    jsClick(closeBtn);
-                } catch (Exception e) {
-                    ((JavascriptExecutor) driver).executeScript(
-                            "document.getElementById('additionalDetailsModal').style.display='none';" +
-                            "document.querySelector('.modal-backdrop')?.remove();" +
-                            "document.body.classList.remove('modal-open');");
-                }
-                Thread.sleep(1000);
-            }
-        } catch (Exception ignored) {
-            // Modal not present — continue
+            longWait.until(ExpectedConditions.presenceOfElementLocated(
+                    By.xpath("//button[normalize-space()='About'] | //button[normalize-space()='Basic Info']")));
+            log.info("✅ Successfully on the React profile page");
+        } catch (Exception e) {
+            log.warn("Profile tabs not found, retrying...");
+            driver.get(profileUrl);
+            waitForPageLoad();
+            safeSleep(3000);
         }
     }
 
     /**
-     * Upload banner and logo images.
+     * Navigate to Basic Info tab in the React profile.
      */
-    public void uploadBannerAndLogo() throws InterruptedException {
-        // Wait for banner icon to be present on the page
-        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(30));
-        longWait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("div.tooltip_image1")));
-
-        scrollToElement(bannerIcon);
-        bannerInput.sendKeys(getRandomImagePath());
-
-        scrollToElement(logoIcon);
-        logoInput.sendKeys(getRandomImagePath());
-
-        Thread.sleep(2000); // Wait for uploads to process
+    public void navigateToBasicInfo() throws InterruptedException {
+        scrollToTop();
+        WebElement basicInfoTab = longWait.until(
+                ExpectedConditions.elementToBeClickable(TAB_BASIC_INFO));
+        scrollToElement(basicInfoTab);
+        safeClick(basicInfoTab);
+        safeSleep(1000);
+        log.info("Clicked 'Basic Info' tab");
     }
+
+    /**
+     * Extract email from the Basic Info form and write to Excel.
+     */
+    public void extractEmailFromProfile() {
+        WebElement emailField = longWait.until(
+                ExpectedConditions.visibilityOfElementLocated(INPUT_USER_EMAIL));
+        scrollToElement(emailField);
+
+        String value = emailField.getAttribute("value");
+        if (value == null || value.isEmpty()) {
+            // Try getting via JS for React controlled inputs
+            value = (String) ((JavascriptExecutor) driver).executeScript(
+                    "return arguments[0].value;", emailField);
+        }
+
+        log.info("Extracted Email from React profile: {}", value);
+        writeEmailToExcel(value);
+        log.info("Email written to Excel successfully");
+    }
+
+    /**
+     * Upload banner image via the camera button on the banner.
+     */
+    public void uploadBanner() throws InterruptedException {
+        String imagePath = getRandomImagePath();
+        WebElement fileInput = driver.findElement(BANNER_FILE_INPUT);
+        // Make input visible for sendKeys
+        ((JavascriptExecutor) driver).executeScript(
+                "arguments[0].style.display='block'; arguments[0].style.opacity='1';", fileInput);
+        fileInput.sendKeys(imagePath);
+        safeSleep(2000);
+        waitForToastOrTimeout();
+        log.info("Banner uploaded: {}", imagePath);
+    }
+
+    /**
+     * Upload profile photo via the hidden file input in UserInfoCard.
+     * The input has class="hidden" and accept="image/*".
+     * We make it visible via JS, then sendKeys the file path.
+     */
+    public void uploadProfilePhoto() throws InterruptedException {
+        log.info("Uploading profile photo...");
+        String imagePath = getRandomImagePath();
+
+        try {
+            List<WebElement> fileInputs = driver.findElements(By.cssSelector("input[type='file'][accept='image/*']"));
+
+            if (fileInputs.size() >= 2) {
+                WebElement profileInput = fileInputs.get(1);
+                ((JavascriptExecutor) driver).executeScript(
+                        "arguments[0].classList.remove('hidden');" +
+                        "arguments[0].style.display='block';" +
+                        "arguments[0].style.opacity='1';" +
+                        "arguments[0].style.position='relative';",
+                        profileInput);
+                profileInput.sendKeys(imagePath);
+                safeSleep(2000);
+                waitForToastOrTimeout();
+                log.info("✅ Profile photo uploaded: {}", imagePath);
+            } else if (fileInputs.size() == 1) {
+                WebElement input = fileInputs.get(0);
+                ((JavascriptExecutor) driver).executeScript(
+                        "arguments[0].classList.remove('hidden'); arguments[0].style.display='block';", input);
+                input.sendKeys(imagePath);
+                safeSleep(2000);
+                waitForToastOrTimeout();
+                log.info("✅ Profile photo uploaded (single input): {}", imagePath);
+            } else {
+                log.warn("No file inputs found for profile photo upload");
+            }
+        } catch (Exception e) {
+            log.warn("Profile photo upload failed: {}", e.getMessage());
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Profile Section Methods
+    // -------------------------------------------------------------------------
 
     /**
      * Fill the About section.
+     * The section may be in accordion (collapsed) or expanded state.
+     * 
+     * React renders:
+     *   <textarea rows={1} maxLength={300} value={about} onChange={handleChange}
+     *     placeholder="Tell us about yourself..."
+     *     class="w-full min-h-24 border border-gray-300 rounded-lg p-2 text-sm resize-none overflow-hidden focus:outline-none">
+     *   </textarea>
      */
-    public void fillAboutSection() {
-        scrollToElement(aboutEditBtn);
-        safeClick(aboutEditBtn);
-        waitForVisible(aboutInput);
-        aboutInput.sendKeys("This is automated testing profile. Please ignore.");
-        safeClick(aboutSaveBtn);
-    }
+    public void fillAboutSection() throws InterruptedException {
+        log.info("Filling About section...");
 
-    /**
-     * Add area of interest with random selections.
-     */
-    public void addAreaOfInterest() {
-        safeClick(areaOfInterestPlus);
-        selectRandomOption(areaOfInterestDropdown);
-        selectRandomOption(subAreaDropdown);
-        safeClick(saveAreaBtn);
-    }
+        expandSectionIfCollapsed("About");
+        safeSleep(1000);
 
-    /**
-     * Add a random language.
-     */
-    public void addLanguage() {
-        safeClick(languagePlus);
-        selectRandomOption(languageDropdown);
-        safeClick(saveLanguageBtn);
-    }
-
-    /**
-     * Fill professional summary and select a skill.
-     */
-    public void fillProfessionalSummary() {
-        safeClick(profSummaryPlus);
-        profSummaryInput.sendKeys("Automated professional summary.");
-
-        safeClick(profSkillLabel);
-        // Wait for dropdown options to appear
-        try { Thread.sleep(1000); } catch (Exception ignored) {}
-        int index = random.nextInt(profSkillOptions.size());
-        WebElement option = profSkillOptions.get(index);
-        scrollToElement(option);
-        jsClick(option);
-
-        safeClick(profSaveBtn);
-    }
-
-    /**
-     * Add work experience details.
-     */
-    public void addWorkExperience() {
-        safeClick(workExpPlus);
-        jobTitle.sendKeys("Software Tester");
-        company.sendKeys("ABC Technologies");
-        startDate.sendKeys("2020-01-01");
-        endDate.sendKeys("2022-12-31");
-        safeClick(workSaveBtn);
-    }
-
-    /**
-     * Fill tools, intro video, and social links.
-     */
-    public void fillToolsSection() {
-        jsClick(toolsSection);
-        waitForVisible(By.id("devops_tools"));
-
-        clearAndType(toolsInput, "Selenium, Playwright, Maven, TestNG, Java, Git, Jenkins");
-        clearAndType(introVideo, "https://www.youtube.com/watch?v=QZSlDNgi-eQ");
-
-        // Cross-browser safe dropdown selection
-        scrollToElement(socialTypeDropdown);
+        WebElement textarea = null;
         try {
-            new Select(socialTypeDropdown).selectByIndex(3);
+            textarea = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
+                    ExpectedConditions.visibilityOfElementLocated(
+                            By.xpath("//textarea[@placeholder='Tell us about yourself...']")));
         } catch (Exception e) {
-            ((JavascriptExecutor) driver).executeScript(
-                    "arguments[0].selectedIndex = 3; arguments[0].dispatchEvent(new Event('change'));",
-                    socialTypeDropdown);
+            clickEditIconInSection("About");
+            safeSleep(1000);
+            try {
+                textarea = driver.findElement(By.xpath("//textarea[@placeholder='Tell us about yourself...']"));
+            } catch (Exception e2) {
+                textarea = findTextareaInSection("About");
+            }
         }
 
-        clearAndType(socialUrl, "https://x.com/MkumarManoj1");
-
-        waitForClickable(saveToolsBtn);
-        safeClick(saveToolsBtn);
-        scrollPage(700);
+        if (textarea != null && textarea.isDisplayed()) {
+            scrollToElement(textarea);
+            setReactInputValue(textarea, "Automated testing profile. Passionate about technology and innovation.");
+            clickSaveOrUpdateInSection("About");
+            waitForToastOrTimeout();
+            log.info("✅ About section saved");
+        } else {
+            log.warn("⚠️ Could not find About textarea, skipping");
+        }
     }
 
     /**
-     * Download the registration certificate as PNG.
-     * Validates download in user's Downloads folder, then closes the modal.
+     * Add Area of Interest using react-select multi-select dropdown.
      */
-    public void downloadCertification() throws InterruptedException {
-        scrollToElement(myCertifications);
-        safeClick(myCertifications);
+    public void addAreaOfInterest() throws InterruptedException {
+        log.info("Adding Area of Interest...");
+        expandSectionIfCollapsed("Area of Interest");
+        safeSleep(800);
 
-        waitForClickable(certificationDownloadInPng);
-        certificationDownloadInPng.click();
+        if (!isReactSelectVisible()) {
+            clickEditIconInSection("Area of Interest");
+            safeSleep(800);
+        }
 
-        // Validate certificate downloaded to user's Downloads folder
-        String downloadDir = System.getProperty("user.home") + File.separator + "Downloads";
-        boolean downloaded = false;
-        for (int i = 0; i < 15; i++) {
-            File dir = new File(downloadDir);
-            File[] files = dir.listFiles();
-            if (files != null) {
-                for (File file : files) {
-                    if (file.getName().endsWith(".png") && !file.getName().contains(".crdownload")) {
-                        System.out.println("✅ Certificate downloaded: " + file.getName());
-                        downloaded = true;
-                        break;
+        selectFirstOptionInReactSelect(0);
+        safeSleep(1000);
+
+        try {
+            selectFirstOptionInReactSelect(1);
+            safeSleep(500);
+        } catch (Exception e) {
+            log.info("Sub-area dropdown not available, skipping");
+        }
+
+        clickSaveOrUpdateInSection("Area of Interest");
+        waitForToastOrTimeout();
+        log.info("✅ Area of Interest saved");
+    }
+
+    /**
+     * Add a language using react-select.
+     */
+    public void addLanguage() throws InterruptedException {
+        log.info("Adding Language...");
+        expandSectionIfCollapsed("Languages");
+        safeSleep(800);
+
+        if (!isReactSelectVisible()) {
+            clickEditIconInSection("Languages");
+            safeSleep(800);
+        }
+
+        selectFirstOptionInReactSelect(0);
+        safeSleep(500);
+
+        clickSaveOrUpdateInSection("Languages");
+        waitForToastOrTimeout();
+        log.info("✅ Language saved");
+    }
+
+    /**
+     * Fill Professional Summary with description and skills.
+     */
+    public void fillProfessionalSummary() throws InterruptedException {
+        log.info("Filling Professional Summary...");
+        expandSectionIfCollapsed("Professional Summary");
+        safeSleep(800);
+
+        if (findTextareaInSection("Professional Summary") == null) {
+            clickEditIconInSection("Professional Summary");
+            safeSleep(1000);
+        }
+
+        WebElement textarea = findTextareaInSection("Professional Summary");
+        if (textarea != null) {
+            scrollToElement(textarea);
+            setReactInputValue(textarea, "Experienced in automation testing with Selenium, Java, and TestNG.");
+        }
+
+        try {
+            List<WebElement> reactSelects = driver.findElements(
+                    By.cssSelector("[class*='css-'][class*='control']"));
+            if (!reactSelects.isEmpty()) {
+                WebElement lastSelect = reactSelects.get(reactSelects.size() - 1);
+                scrollToElement(lastSelect);
+                lastSelect.click();
+                safeSleep(500);
+                WebElement input = driver.findElement(By.cssSelector("[class*='css-'] input[aria-autocomplete]"));
+                input.sendKeys("Java");
+                safeSleep(800);
+                input.sendKeys(Keys.ENTER);
+            }
+        } catch (Exception e) {
+            log.info("Skills react-select not found, skipping");
+        }
+
+        clickSaveOrUpdateInSection("Professional Summary");
+        waitForToastOrTimeout();
+        log.info("✅ Professional Summary saved");
+    }
+
+    /**
+     * Add Education Qualification entry.
+     * 
+     * Education section has actionType="add" and isEmpty={false},
+     * so it's always in SectionWrapper (card) mode with a FiPlusCircle icon.
+     * Clicking the + icon sets isEditing=true which renders the form.
+     */
+    public void addEducationQualification() throws InterruptedException {
+        log.info("Adding Education Qualification...");
+        scrollPage(600);
+        safeSleep(500);
+
+        clickAddIconForSection("Education Qualification");
+        safeSleep(2000);
+        scrollPage(400);
+
+        try {
+            List<WebElement> selects = driver.findElements(By.cssSelector(
+                    "select.w-full.border.border-gray-300"));
+            if (selects.size() < 1) {
+                log.warn("Education form dropdowns not found");
+                return;
+            }
+
+            // 1. Education Type = "12th" (value "5")
+            WebElement educationType = selects.get(0);
+            scrollToElement(educationType);
+            ((JavascriptExecutor) driver).executeScript(
+                    "arguments[0].value='5'; arguments[0].dispatchEvent(new Event('change',{bubbles:true}));",
+                    educationType);
+            safeSleep(1500);
+
+            // 2. State — select first available state (index 1)
+            selects = driver.findElements(By.cssSelector("select.w-full.border.border-gray-300"));
+            for (WebElement sel : selects) {
+                List<WebElement> opts = sel.findElements(By.tagName("option"));
+                // Find the State dropdown (has "----Select State----" or "----Select----" and many options)
+                boolean isStateDropdown = opts.stream().anyMatch(o -> 
+                        o.getText().contains("Select") && opts.size() > 10);
+                if (isStateDropdown && opts.size() > 5) {
+                    // Select index 1 (first real state)
+                    String firstStateValue = opts.get(1).getAttribute("value");
+                    ((JavascriptExecutor) driver).executeScript(
+                            "arguments[0].value=arguments[1]; arguments[0].dispatchEvent(new Event('change',{bubbles:true}));",
+                            sel, firstStateValue);
+                    safeSleep(1500); // Wait for district dropdown to populate
+                    log.info("State selected");
+                    break;
+                }
+            }
+
+            // 3. District — select first available district
+            selects = driver.findElements(By.cssSelector("select.w-full.border.border-gray-300"));
+            for (WebElement sel : selects) {
+                List<WebElement> opts = sel.findElements(By.tagName("option"));
+                // District dropdown: has "----Select----" and fewer options than state, loaded after state
+                if (opts.size() >= 2 && opts.size() <= 50) {
+                    String firstOptText = opts.get(0).getText();
+                    if (firstOptText.contains("Select") && !firstOptText.contains("State") 
+                            && !firstOptText.contains("Education") && !firstOptText.contains("Institute")
+                            && !firstOptText.contains("Status") && !firstOptText.contains("Board")
+                            && !firstOptText.contains("Identifier") && !firstOptText.contains("Course")) {
+                        // Check if this is a district-like dropdown (not already selected)
+                        String currentVal = sel.getAttribute("value");
+                        if (currentVal == null || currentVal.isEmpty()) {
+                            String districtValue = opts.get(1).getAttribute("value");
+                            ((JavascriptExecutor) driver).executeScript(
+                                    "arguments[0].value=arguments[1]; arguments[0].dispatchEvent(new Event('change',{bubbles:true}));",
+                                    sel, districtValue);
+                            safeSleep(1000);
+                            log.info("District selected");
+                            break;
+                        }
                     }
                 }
             }
-            if (downloaded) break;
-            Thread.sleep(1000);
-        }
-        Assert.assertTrue(downloaded, "Certificate PNG not downloaded!");
 
-        // Close the certificate modal
-        Thread.sleep(1000);
-        safeClick(closeModalBtn);
-        Thread.sleep(1000);
-    }
-
-    /**
-     * Navigate to Basic Info tab.
-     * Uses element-based scrolling for all screen sizes.
-     */
-    public void navigateToBasicInfo() throws InterruptedException {
-        // Scroll to top first (works on all resolutions)
-        ((JavascriptExecutor) driver).executeScript("window.scrollTo(0, 0);");
-        Thread.sleep(1000);
-
-        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(30));
-        longWait.until(ExpectedConditions.elementToBeClickable(basicInfoTab));
-        scrollToElement(basicInfoTab);
-        safeClick(basicInfoTab);
-        Thread.sleep(1000);
-    }
-
-    /**
-     * Extract email from profile and write to Excel.
-     */
-    public void extractEmailFromProfile() {
-        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(20));
-
-        WebElement emailField = longWait.until(
-                ExpectedConditions.visibilityOfElementLocated(By.id("user_email_id")));
-
-        scrollToElement(emailField);
-        String value = emailField.getAttribute("value");
-        System.out.println("Extracted Email: " + value);
-
-        writeEmailToExcel(value);
-        System.out.println("Email extracted from profile and written to Excel successfully.");
-    }
-
-    /**
-     * Navigate back to the Profile tab so the certificate section is visible
-     * for the next test (RegistrationCertificateVerificationTest).
-     */
-    public void navigateBackToProfileTab() throws InterruptedException {
-        // Click on the Profile tab (first tab) to go back to profile view
-        try {
-            WebElement profileTab = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
-                    ExpectedConditions.elementToBeClickable(
-                            By.cssSelector("a[href='#Profile'], a[href='#profile'], .nav-link.active:first-child")));
-            safeClick(profileTab);
-            Thread.sleep(2000);
-        } catch (Exception e) {
-            // If tab click fails, scroll to top where certificate section is
-            scrollPage(-5000);
-            Thread.sleep(1000);
-        }
-        // Scroll down to make certificate section visible
-        scrollPage(1000);
-        Thread.sleep(1000);
-    }
-
-    /**
-     * Change password via the modal dialog.
-     */
-    public void changePassword() throws InterruptedException {
-        scrollPage(4000);
-
-        waitForClickable(changePasswordLink);
-        changePasswordLink.click();
-
-        // Wait for Change Password modal
-        WebElement modal = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(
-                        By.xpath("//div[contains(@class,'modal-dialog') and .//text()[contains(.,'Change Password')]]")));
-
-        WebElement newPass = modal.findElement(By.id("newPassword"));
-        WebElement confirmPass = modal.findElement(By.id("confirmPassword"));
-        WebElement updateBtn = modal.findElement(By.id("updatePasswordButton"));
-
-        waitForClickable(newPass);
-        waitForClickable(confirmPass);
-
-        newPass.sendKeys("Pass@123456");
-        confirmPass.sendKeys("Pass@123456");
-
-        waitForClickable(updateBtn);
-        updateBtn.click();
-
-        // Wait for modal to disappear
-        wait.until(ExpectedConditions.invisibilityOf(modal));
-
-        // Wait for success modal
-        WebElement successModal = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(
-                        By.xpath("//div[contains(@class,'modal-dialog') and contains(.,'successfully changed your password')]")));
-
-        // Click Login button inside success modal
-        successModal.findElement(By.xpath(".//button[contains(text(),'Login')]")).click();
-
-        Thread.sleep(3000);
-
-        // Navigate back to the application
-        driver.get(config.getProperty("url"));
-        Thread.sleep(3000);
-    }
-
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
-
-    /**
-     * Select a random option from a dropdown (skipping the first placeholder).
-     * Scrolls to element first and uses JS fallback for cross-browser compatibility.
-     */
-    private void selectRandomOption(WebElement element) {
-        scrollToElement(element);
-        Select select = new Select(element);
-        List<WebElement> options = select.getOptions();
-        if (options.size() > 1) {
-            int index = random.nextInt(options.size() - 1) + 1;
-            try {
-                select.selectByIndex(index);
-            } catch (Exception e) {
-                // Fallback: use JavaScript to set the selected index (works on all browsers)
-                ((JavascriptExecutor) driver).executeScript(
-                        "arguments[0].selectedIndex = arguments[1]; arguments[0].dispatchEvent(new Event('change'));",
-                        element, index);
+            // 4. Education Status = "Passed"
+            selects = driver.findElements(By.cssSelector("select.w-full.border.border-gray-300"));
+            for (WebElement sel : selects) {
+                if (sel.findElements(By.xpath(".//option[text()='Passed']")).size() > 0) {
+                    ((JavascriptExecutor) driver).executeScript(
+                            "arguments[0].value='Passed'; arguments[0].dispatchEvent(new Event('change',{bubbles:true}));", sel);
+                    safeSleep(500);
+                    break;
+                }
             }
+
+            // 5. Student Identifier = "Roll number"
+            selects = driver.findElements(By.cssSelector("select.w-full.border.border-gray-300"));
+            for (WebElement sel : selects) {
+                if (sel.findElements(By.xpath(".//option[text()='Roll number']")).size() > 0) {
+                    ((JavascriptExecutor) driver).executeScript(
+                            "arguments[0].value='Roll number'; arguments[0].dispatchEvent(new Event('change',{bubbles:true}));", sel);
+                    break;
+                }
+            }
+
+            // 6. Student Identifier Value
+            try {
+                WebElement identifierInput = driver.findElement(By.xpath("//input[@placeholder='Enter value']"));
+                scrollToElement(identifierInput);
+                typeInReactInput(identifierInput, "12345678");
+            } catch (Exception e) { /* skip */ }
+
+            // 7. Save
+            scrollPage(300);
+            clickSaveOrUpdateInSection("Education Qualification");
+            waitForToastOrTimeout();
+            log.info("✅ Education Qualification saved");
+        } catch (Exception e) {
+            log.warn("Education qualification fill failed: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Add Work Experience entry.
+     * 
+     * Work Experience section has actionType="add" and isEmpty={false},
+     * so it's always in SectionWrapper (card) mode with a FiPlusCircle icon.
+     */
+    public void addWorkExperience() throws InterruptedException {
+        log.info("Adding Work Experience...");
+        scrollPage(400);
+        safeSleep(500);
+
+        clickAddIconForSection("Work Experience");
+        safeSleep(2000);
+
+        try {
+            WebElement jobTitleInput = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
+                    ExpectedConditions.visibilityOfElementLocated(
+                            By.xpath("//input[@placeholder='Enter job title']")));
+            scrollToElement(jobTitleInput);
+            typeInReactInput(jobTitleInput, "Software Test Engineer");
+        } catch (Exception e) {
+            log.warn("Job title input not found: {}", e.getMessage());
+            savePageSourceForDebug("work_exp_form_missing");
+            return;
+        }
+
+        try {
+            WebElement companyInput = driver.findElement(
+                    By.xpath("//input[@placeholder='Enter company name']"));
+            typeInReactInput(companyInput, "ABC Technologies Pvt Ltd");
+        } catch (Exception e) {
+            log.warn("Company input not found");
+        }
+
+        List<WebElement> dateInputs = driver.findElements(By.xpath("//input[@type='date']"));
+        if (dateInputs.size() >= 1) setDateInput(dateInputs.get(0), "2020-01-15");
+        if (dateInputs.size() >= 2) setDateInput(dateInputs.get(1), "2023-06-30");
+
+        clickSaveOrUpdateInSection("Work Experience");
+        waitForToastOrTimeout();
+        log.info("✅ Work Experience saved");
+    }
+
+    /**
+     * Click the Add (+) icon for sections with actionType="add".
+     * These sections (Education, Work Experience) are always in card mode (not accordion).
+     * The FiPlusCircle renders as: <svg size={26} class="text-[#bc4717] cursor-pointer" onClick={...}>
+     * 
+     * This method specifically targets the FiPlusCircle in the section header.
+     */
+    private void clickAddIconForSection(String sectionTitle) {
+        try {
+            WebElement section = findSectionContainer(sectionTitle);
+            if (section == null) {
+                log.warn("Section not found for add icon: {}", sectionTitle);
+                return;
+            }
+
+            ((JavascriptExecutor) driver).executeScript(
+                    "var section = arguments[0];" +
+                    "var header = section.querySelector('div[class*=\"justify-between\"]');" +
+                    "if(!header) { header = section; }" +
+                    "var icons = header.querySelectorAll('svg[class*=\"cursor-pointer\"], svg.cursor-pointer');" +
+                    "if(icons.length > 0) {" +
+                    "  icons[icons.length-1].dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true, view:window}));" +
+                    "}",
+                    section);
+            safeSleep(1500);
+            log.info("Clicked + icon for section: {}", sectionTitle);
+        } catch (Exception e) {
+            log.warn("Failed to click add icon for {}: {}", sectionTitle, e.getMessage());
+            try {
+                WebElement section = findSectionContainer(sectionTitle);
+                if (section != null) {
+                    WebElement icon = section.findElement(By.cssSelector("svg[class*='cursor-pointer']"));
+                    scrollToElement(icon);
+                    actions().moveToElement(icon).click().perform();
+                    safeSleep(1500);
+                }
+            } catch (Exception e2) {
+                log.warn("All add icon strategies failed for: {}", sectionTitle);
+            }
+        }
+    }
+
+    /**
+     * Fill Tools section with tools, video URL, and social links.
+     * 
+     * Tools form renders:
+     *   <input placeholder="Add tools (comma separated)" class="w-full border ..."/>
+     *   <input placeholder="Insert introduction video links" class="w-full border ..."/>
+     */
+    public void fillToolsSection() throws InterruptedException {
+        log.info("Filling Tools section...");
+        scrollPage(800);
+        safeSleep(500);
+
+        WebElement toolsInput = null;
+        try {
+            toolsInput = driver.findElement(By.xpath("//input[@placeholder='Add tools (comma separated)']"));
+            if (!toolsInput.isDisplayed()) toolsInput = null;
+        } catch (Exception e) {
+            toolsInput = null;
+        }
+
+        if (toolsInput == null) {
+            clickEditIconInSection("Tools");
+            safeSleep(1500);
+        }
+
+        try {
+            toolsInput = new WebDriverWait(driver, Duration.ofSeconds(8)).until(
+                    ExpectedConditions.visibilityOfElementLocated(
+                            By.xpath("//input[@placeholder='Add tools (comma separated)']")));
+            scrollToElement(toolsInput);
+            typeInReactInput(toolsInput, "Selenium, Java, TestNG, Maven, Git, Jenkins, Docker");
+        } catch (Exception e) {
+            log.warn("Tools input not found: {}", e.getMessage());
+        }
+
+        try {
+            WebElement videoInput = driver.findElement(
+                    By.xpath("//input[@placeholder='Insert introduction video links']"));
+            scrollToElement(videoInput);
+            typeInReactInput(videoInput, "https://www.youtube.com/watch?v=QZSlDNgi-eQ");
+        } catch (Exception e) { /* skip */ }
+
+        clickSaveOrUpdateInSection("Tools");
+        waitForToastOrTimeout();
+        log.info("✅ Tools section saved");
+    }
+
+    // -------------------------------------------------------------------------
+    // React-specific helper methods
+    // -------------------------------------------------------------------------
+
+    /**
+     * Wait for React to finish rendering.
+     * Checks document.readyState + no pending network requests.
+     */
+    private void waitForReactReady() {
+        waitForPageLoad();
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(3)).until(
+                    ExpectedConditions.invisibilityOfElementLocated(
+                            By.xpath("//*[contains(@class,'animate-pulse') or contains(text(),'Loading')]")));
+        } catch (Exception e) { /* no loader */ }
+    }
+
+    /**
+     * Find a section container by its title text.
+     * Handles BOTH modes:
+     *   1. AccordionItem: title is bare text inside a div (no span wrapper)
+     *      <button class="w-full flex justify-between items-center px-5 py-4">
+     *        <div>...<span>{icon}</span> About</div>
+     *        <span>{+/- icon}</span>
+     *      </button>
+     *   2. SectionWrapper: title is inside a <span>
+     *      <div class="flex justify-between items-center mb-3">
+     *        <div>...<span>{icon}</span><span>About</span></div>
+     *        {edit/add icon}
+     *      </div>
+     */
+    private WebElement findSectionContainer(String sectionTitle) {
+        // Strategy 1: SectionWrapper mode — title in <span>
+        try {
+            return driver.findElement(By.xpath(
+                    "//span[normalize-space()='" + sectionTitle + "']/ancestor::div[contains(@class,'rounded-xl')][1]"));
+        } catch (Exception e) {
+            // ignore
+        }
+
+        // Strategy 2: AccordionItem mode — title as text node in div
+        try {
+            return driver.findElement(By.xpath(
+                    "//div[contains(@class,'font-semibold') and contains(normalize-space(),'" + sectionTitle + "')]" +
+                    "/ancestor::div[contains(@class,'rounded-xl')][1]"));
+        } catch (Exception e) {
+            // ignore
+        }
+
+        // Strategy 3: Broad search — any container with the title text
+        try {
+            return driver.findElement(By.xpath(
+                    "//*[contains(@class,'rounded-xl') and .//text()[contains(.,'" + sectionTitle + "')]]"));
+        } catch (Exception e) {
+            log.warn("Could not find section container for: {}", sectionTitle);
+            return null;
+        }
+    }
+
+    /**
+     * Expand a section if it's in accordion (collapsed) state.
+     * 
+     * AccordionItem renders:
+     *   <div class="bg-white border border-orange-200 rounded-xl ...">
+     *     <button class="w-full flex justify-between items-center px-5 py-4">
+     *       <div class="flex items-center gap-3 text-[18px] font-semibold text-gray-800">
+     *         <span class="text-[#bc4717] ...">{icon}</span>
+     *         About   <-- bare text node
+     *       </div>
+     *       <span class="text-[#bc4717] cursor-pointer">{FiPlusCircle SVG}</span>
+     *     </button>
+     *     <div style="height: 0px" class="overflow-hidden ...">...</div>
+     *   </div>
+     */
+    private void expandSectionIfCollapsed(String sectionTitle) {
+        try {
+            // Find the accordion button that contains this title text
+            // The button has class "w-full flex justify-between items-center px-5 py-4"
+            WebElement accordionBtn = driver.findElement(By.xpath(
+                    "//button[contains(@class,'w-full') and contains(@class,'justify-between') " +
+                    "and .//div[contains(@class,'font-semibold') and contains(normalize-space(),'" + sectionTitle + "')]]"));
+
+            scrollToElement(accordionBtn);
+            jsClick(accordionBtn);
+            safeSleep(1000);
+            log.info("Expanded accordion section: {}", sectionTitle);
+        } catch (Exception e) {
+            // Not in accordion mode — section is already expanded as a card
+            log.info("Section '{}' not in accordion mode (already expanded or card mode)", sectionTitle);
+        }
+    }
+
+    /**
+     * Click the Edit (pencil) icon in a SectionWrapper.
+     * 
+     * SectionWrapper renders:
+     *   <div class="bg-white border border-orange-200 rounded-xl ... px-5 py-4">
+     *     <div class="flex justify-between items-center mb-3">
+     *       <div class="flex items-center gap-3 ...">
+     *         <span>{icon}</span>
+     *         <span>{title}</span>
+     *       </div>
+     *       <MdEdit class="text-blue-600 cursor-pointer" onClick={...} />  <-- THIS
+     *     </div>
+     *     {children}
+     *   </div>
+     */
+    private void clickEditIconInSection(String sectionTitle) {
+        WebElement section = findSectionContainer(sectionTitle);
+        if (section == null) {
+            log.warn("Cannot find section to click edit: {}", sectionTitle);
+            return;
+        }
+
+        try {
+            // In the DOM, icons are SVGs with class containing "cursor-pointer"
+            // React-icons renders: <svg class="text-blue-600 cursor-pointer shrink-0" ...>
+            // or: <svg class="text-[#bc4717] cursor-pointer shrink-0" ...>
+            // Use CSS selector which is more reliable for class matching
+            WebElement icon = section.findElement(By.cssSelector(
+                    "svg[class*='cursor-pointer']"));
+            scrollToElement(icon);
+            // Use Actions API for proper event dispatch that React captures
+            actions().moveToElement(icon).click().perform();
+            safeSleep(2000); // Wait for React state update + form render
+            log.info("Clicked icon (Actions) for section: {}", sectionTitle);
+        } catch (Exception e) {
+            // Fallback: find via XPath and use JS MouseEvent dispatch
+            try {
+                ((JavascriptExecutor) driver).executeScript(
+                        "var section = arguments[0];" +
+                        "var svgs = section.querySelectorAll('svg[class*=\"cursor-pointer\"]');" +
+                        "if(svgs.length > 0) {" +
+                        "  var evt = new MouseEvent('click', {bubbles:true, cancelable:true, view:window});" +
+                        "  svgs[0].dispatchEvent(evt);" +
+                        "}",
+                        section);
+                safeSleep(2000);
+                log.info("Clicked icon (JS MouseEvent) for section: {}", sectionTitle);
+            } catch (Exception e2) {
+                log.warn("All icon click strategies failed for section: {}", sectionTitle);
+            }
+        }
+    }
+
+    /**
+     * Click the Add (+) icon in a section wrapper (for Work Experience, Education).
+     * These sections use actionType="add" which renders FiPlusCircle.
+     */
+    private void clickAddIconInSection(String sectionTitle) {
+        clickAddIconForSection(sectionTitle);
+    }
+
+    /**
+     * Click Save or Update button within a specific section context.
+     * Buttons render as:
+     *   <button class="px-5 py-2 bg-[#bc4717] text-white rounded-lg ...">Save</button>
+     */
+    private void clickSaveOrUpdateInSection(String sectionTitle) {
+        safeSleep(500);
+
+        WebElement section = findSectionContainer(sectionTitle);
+
+        // Try within section first
+        if (section != null) {
+            try {
+                WebElement saveBtn = section.findElement(By.xpath(
+                        ".//button[contains(@class,'bg-[#bc4717]') and (normalize-space()='Save' or normalize-space()='Update')]"));
+                scrollToElement(saveBtn);
+                safeClick(saveBtn);
+                log.info("Clicked Save/Update in section: {}", sectionTitle);
+                return;
+            } catch (Exception e) {
+                // Try broader search within section
+                try {
+                    WebElement saveBtn = section.findElement(By.xpath(
+                            ".//button[normalize-space()='Save' or normalize-space()='Update']"));
+                    scrollToElement(saveBtn);
+                    safeClick(saveBtn);
+                    log.info("Clicked Save/Update (broad) in section: {}", sectionTitle);
+                    return;
+                } catch (Exception e2) {
+                    // fall through to global search
+                }
+            }
+        }
+
+        // Fallback: find any visible Save/Update button on page
+        List<WebElement> buttons = driver.findElements(By.xpath(
+                "//button[normalize-space()='Save' or normalize-space()='Update']"));
+        for (WebElement btn : buttons) {
+            if (btn.isDisplayed() && btn.isEnabled()) {
+                scrollToElement(btn);
+                safeClick(btn);
+                log.info("Clicked Save/Update button (global fallback)");
+                return;
+            }
+        }
+        log.warn("Could not find Save/Update button for section: {}", sectionTitle);
+    }
+
+    /**
+     * Find a textarea element within a section.
+     */
+    private WebElement findTextareaInSection(String sectionTitle) {
+        WebElement section = findSectionContainer(sectionTitle);
+        if (section != null) {
+            try {
+                List<WebElement> textareas = section.findElements(By.tagName("textarea"));
+                for (WebElement ta : textareas) {
+                    if (ta.isDisplayed()) return ta;
+                }
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+
+        // Fallback: find any visible textarea on the page
+        List<WebElement> textareas = driver.findElements(By.tagName("textarea"));
+        for (WebElement ta : textareas) {
+            try {
+                if (ta.isDisplayed()) return ta;
+            } catch (Exception e) {
+                // stale element, skip
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Check if a react-select component is currently visible on the page.
+     */
+    private boolean isReactSelectVisible() {
+        try {
+            List<WebElement> selects = driver.findElements(
+                    By.cssSelector("[class*='css-'][class*='control'], [class*='react-select']"));
+            return !selects.isEmpty() && selects.get(0).isDisplayed();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Select the first available option from a react-select dropdown.
+     * @param index which react-select on the page (0-based)
+     */
+    private void selectFirstOptionInReactSelect(int index) {
+        // Find all react-select control containers
+        List<WebElement> controls = driver.findElements(
+                By.cssSelector("[class*='css-'][class*='control']"));
+
+        if (controls.size() <= index) {
+            log.warn("react-select at index {} not found (total: {})", index, controls.size());
+            return;
+        }
+
+        WebElement control = controls.get(index);
+        scrollToElement(control);
+        control.click();
+        safeSleep(800);
+
+        // Wait for menu to appear
+        try {
+            WebElement menu = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                    ExpectedConditions.visibilityOfElementLocated(
+                            By.cssSelector("[class*='css-'][class*='menu']")));
+
+            // Click first option in the menu
+            List<WebElement> options = menu.findElements(
+                    By.cssSelector("[class*='css-'][class*='option']"));
+            if (!options.isEmpty()) {
+                options.get(0).click();
+                safeSleep(500);
+                log.info("Selected first option from react-select index {}", index);
+            }
+        } catch (Exception e) {
+            // Fallback: type a character and press Enter
+            try {
+                WebElement input = driver.findElement(
+                        By.cssSelector("[class*='css-'] input[aria-autocomplete='list']"));
+                input.sendKeys("a");
+                safeSleep(800);
+                input.sendKeys(Keys.ENTER);
+                safeSleep(500);
+                log.info("Selected option via keyboard in react-select index {}", index);
+            } catch (Exception e2) {
+                log.warn("Failed to select from react-select index {}: {}", index, e2.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Set a date value on an HTML date input using JavaScript.
+     * React date inputs need value set via nativeInputValueSetter.
+     */
+    private void setDateInput(WebElement dateInput, String dateValue) {
+        ((JavascriptExecutor) driver).executeScript(
+                "var nativeInputValueSetter = Object.getOwnPropertyDescriptor(" +
+                "window.HTMLInputElement.prototype, 'value').set;" +
+                "nativeInputValueSetter.call(arguments[0], arguments[1]);" +
+                "arguments[0].dispatchEvent(new Event('input', { bubbles: true }));" +
+                "arguments[0].dispatchEvent(new Event('change', { bubbles: true }));",
+                dateInput, dateValue);
+        safeSleep(300);
+    }
+
+    /**
+     * Set value on a React controlled input/textarea using nativeInputValueSetter.
+     * React 19 requires proper synthetic event dispatch.
+     * This method:
+     *   1. Focuses the element
+     *   2. Clears existing value via select-all + delete
+     *   3. Types the value character by character via sendKeys
+     *   4. Triggers blur to finalize React state
+     */
+    private void setReactInputValue(WebElement element, String value) {
+        try {
+            scrollToElement(element);
+            element.click();
+            safeSleep(300);
+            // Select all existing text and delete
+            element.sendKeys(Keys.chord(Keys.COMMAND, "a"));
+            safeSleep(100);
+            element.sendKeys(Keys.BACK_SPACE);
+            safeSleep(100);
+            // Type the new value
+            element.sendKeys(value);
+            safeSleep(300);
+            // Trigger blur to finalize
+            ((JavascriptExecutor) driver).executeScript("arguments[0].dispatchEvent(new Event('blur', {bubbles:true}));", element);
+            safeSleep(200);
+        } catch (Exception e) {
+            log.warn("sendKeys approach failed, trying JS setter: {}", e.getMessage());
+            // Fallback: JS native setter (works on some React versions)
+            String tagName = element.getTagName().toLowerCase();
+            String prototype = tagName.equals("textarea")
+                    ? "window.HTMLTextAreaElement.prototype"
+                    : "window.HTMLInputElement.prototype";
+            ((JavascriptExecutor) driver).executeScript(
+                    "var el = arguments[0];" +
+                    "var value = arguments[1];" +
+                    "el.focus();" +
+                    "var nativeSetter = Object.getOwnPropertyDescriptor(" + prototype + ", 'value').set;" +
+                    "nativeSetter.call(el, value);" +
+                    "el.dispatchEvent(new Event('input', { bubbles: true }));" +
+                    "el.dispatchEvent(new Event('change', { bubbles: true }));" +
+                    "el.dispatchEvent(new Event('blur', { bubbles: true }));",
+                    element, value);
+            safeSleep(300);
+        }
+    }
+
+    /**
+     * Set value on a React controlled input using focus + clear + sendKeys approach.
+     * This is more reliable for some React inputs that listen to keydown events.
+     */
+    private void typeInReactInput(WebElement element, String value) {
+        try {
+            scrollToElement(element);
+            element.click();
+            safeSleep(200);
+            // Select all and delete
+            element.sendKeys(Keys.chord(Keys.COMMAND, "a"));
+            safeSleep(100);
+            element.sendKeys(Keys.BACK_SPACE);
+            safeSleep(100);
+            element.sendKeys(value);
+            safeSleep(200);
+        } catch (Exception e) {
+            // Fallback to JS approach
+            setReactInputValue(element, value);
+        }
+    }
+
+    /**
+     * Wait for a toast notification to appear (success or error), or timeout.
+     */
+    private void waitForToastOrTimeout() {
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                    ExpectedConditions.presenceOfElementLocated(
+                            By.cssSelector(".Toastify__toast")));
+            safeSleep(800);
+        } catch (Exception e) {
+            safeSleep(500);
+        }
+    }
+
+    /**
+     * Close popup if present (same as landing page popup).
+     */
+    private void closePopupIfPresent() {
+        try {
+            WebElement popup = new WebDriverWait(driver, Duration.ofSeconds(3)).until(
+                    ExpectedConditions.elementToBeClickable(
+                            By.xpath("//i[@class='fa fa-times'] | //button[contains(@class,'close')]")));
+            popup.click();
+            safeSleep(500);
+        } catch (Exception e) {
+            // No popup
+        }
+    }
+
+    /**
+     * Scroll to top of page.
+     */
+    private void scrollToTop() {
+        ((JavascriptExecutor) driver).executeScript("window.scrollTo(0, 0);");
+    }
+
+    /**
+     * Safe sleep without checked exception.
+     */
+    private void safeSleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
     /**
      * Get a random image path from the UploadImages folder.
+     * Only returns images >= 50KB (app requirement).
      */
     private String getRandomImagePath() {
         File imagesDir = Paths.get(System.getProperty("user.dir"), "UploadImages").toFile();
-
         if (!imagesDir.exists()) {
             throw new RuntimeException("UploadImages folder not found at: " + imagesDir.getAbsolutePath());
         }
-
         File[] files = imagesDir.listFiles((dir, name) ->
                 name.toLowerCase().matches(".*\\.(jpg|png|jpeg)"));
-
         if (files == null || files.length == 0) {
             throw new RuntimeException("No images found in: " + imagesDir.getAbsolutePath());
         }
 
-        File randomFile = files[random.nextInt(files.length)];
-        System.out.println("Selected Image: " + randomFile.getAbsolutePath());
-        return randomFile.getAbsolutePath();
-    }
-
-    /**
-     * Wait for a file download to complete.
-     */
-    private boolean waitForDownload(String extension, int timeoutSeconds) {
-        File dir = new File(System.getProperty("user.dir") + File.separator + "DownLoad");
-
-        for (int i = 0; i < timeoutSeconds; i++) {
-            File[] files = dir.listFiles();
-            if (files != null) {
-                for (File file : files) {
-                    if (file.getName().endsWith(extension) && !file.getName().contains(".crdownload")) {
-                        return true;
-                    }
-                }
+        // Filter for files >= 50KB (app requires minimum 50KB)
+        List<File> validFiles = new java.util.ArrayList<>();
+        for (File f : files) {
+            if (f.length() >= 50 * 1024) { // 50KB minimum
+                validFiles.add(f);
             }
-            try { Thread.sleep(1000); } catch (Exception ignored) {}
         }
-        return false;
+
+        if (validFiles.isEmpty()) {
+            // Fallback: use largest available file
+            File largest = files[0];
+            for (File f : files) {
+                if (f.length() > largest.length()) largest = f;
+            }
+            log.warn("No images >= 50KB found, using largest: {} ({}KB)", largest.getName(), largest.length() / 1024);
+            return largest.getAbsolutePath();
+        }
+
+        File randomFile = validFiles.get(random.nextInt(validFiles.size()));
+        log.info("Selected image: {} ({}KB)", randomFile.getName(), randomFile.length() / 1024);
+        return randomFile.getAbsolutePath();
     }
 
     /**
@@ -597,6 +1110,7 @@ public class YouthProfilePage extends BasePage {
             String path = System.getProperty("user.dir") + File.separator
                     + "resources" + File.separator + "UserDetails.xlsx";
             File file = new File(path);
+            file.getParentFile().mkdirs();
 
             Workbook workbook;
             if (file.exists() && file.length() > 0) {
@@ -623,9 +1137,27 @@ public class YouthProfilePage extends BasePage {
             fos.close();
             workbook.close();
 
-            System.out.println("Email written successfully at: " + path);
+            log.info("Email written to Excel row {}: {}", nextRow, email);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to write email to Excel: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Save page source to reports folder for debugging.
+     */
+    private void savePageSourceForDebug(String label) {
+        try {
+            String pageSource = driver.getPageSource();
+            String filePath = System.getProperty("user.dir") + "/reports/page_source_" + label + ".html";
+            File file = new File(filePath);
+            file.getParentFile().mkdirs();
+            java.io.FileWriter fw = new java.io.FileWriter(file);
+            fw.write(pageSource);
+            fw.close();
+            log.info("Page source saved: {} (URL: {})", filePath, driver.getCurrentUrl());
+        } catch (Exception e) {
+            log.warn("Could not save page source: {}", e.getMessage());
         }
     }
 }

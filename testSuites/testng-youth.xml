@@ -4,7 +4,7 @@
 <!--
   Youth Module Suite - same browser session throughout.
   
-  Flow: Registration → Profile → Certificate Download → Quiz
+  Flow: Registration (+ save email + logout) → Login (from Excel) → Profile → Quiz
   
   Run with:
     mvn test -Denv=prod -Dbrowser=chrome -Dsurefire.suiteXmlFiles=testSuites/testng-youth.xml
@@ -15,28 +15,28 @@
         <listener class-name="com.mybharat.listeners.TestListeners"/>
     </listeners>
 
-    <!-- Step 1: Registration -->
+    <!-- Step 1: Registration → Submit popup → Save email to Excel → Logout -->
     <test name="Youth Registration">
         <classes>
             <class name="com.mybharat.tests.youth.YouthRegistrationTest"/>
         </classes>
     </test>
 
-    <!-- Step 2: Public Profile + Basic Info -->
+    <!-- Step 2: Login with email from Excel (password: 25@March) -->
+    <test name="Youth Login">
+        <classes>
+            <class name="com.mybharat.tests.youth.LoginTest"/>
+        </classes>
+    </test>
+
+    <!-- Step 3: Complete Youth Profile -->
     <test name="Youth Profile Completion">
         <classes>
             <class name="com.mybharat.tests.youth.YouthProfileTest"/>
         </classes>
     </test>
 
-    <!-- Step 3: Certificate Download -->
-    <test name="Registration Certificate Verification">
-        <classes>
-            <class name="com.mybharat.tests.youth.RegistrationCertificateVerificationTest"/>
-        </classes>
-    </test>
-
-    <!-- Step 4: Quiz -->
+    <!-- Step 4: Attempt Quiz -->
     <test name="Quiz Attempt">
         <classes>
             <class name="com.mybharat.tests.youth.QuizAttemptTest"/>

@@ -12,10 +12,11 @@ import com.mybharat.listeners.TestListeners;
 import com.mybharat.pages.youth.YouthProfilePage;
 
 /**
- * YouthProfileTest - Completes the youth profile after registration.
+ * YouthProfileTest - Completes the youth profile after login.
  * 
- * Runs on the SAME browser session after QuizAttemptTest.
- * The user is already logged in and on the profile page.
+ * Runs on the SAME browser session after LoginTest.
+ * The user is already logged in but on the dashboard/home page.
+ * This test navigates to the profile page first, then completes the profile.
  */
 @Listeners(TestListeners.class)
 public class YouthProfileTest extends BaseTest {
@@ -33,6 +34,11 @@ public class YouthProfileTest extends BaseTest {
     public void completeYouthProfile() throws Exception {
         log.info("Starting: Youth Profile Completion");
 
+        // Navigate to profile page first (user is on dashboard after login)
+        profilePage.navigateToProfilePage();
+        log.info("Navigated to profile page");
+
+        // Now complete the profile
         profilePage.completeYouthProfile();
 
         log.info("✅ Youth profile completed successfully");
