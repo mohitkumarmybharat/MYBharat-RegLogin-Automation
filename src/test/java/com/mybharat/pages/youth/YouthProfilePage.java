@@ -367,24 +367,25 @@ public class YouthProfilePage extends BasePage {
 
         // Click edit icon for Professional Summary
         clickEditIconInSection("Professional Summary");
-        safeSleep(200);
+        safeSleep(800); // Need time for React to render the form
 
         // Find ANY visible textarea on the page (Professional Summary's textarea)
-        // After clicking edit, the description textarea appears
         WebElement textarea = null;
         try {
-            List<WebElement> textareas = driver.findElements(By.tagName("textarea"));
-            for (WebElement ta : textareas) {
-                if (ta.isDisplayed() && ta.getAttribute("placeholder") != null
-                        && ta.getAttribute("placeholder").contains("Tell us about")) {
-                    continue; // Skip About textarea
+            // Wait briefly for textarea to appear after edit mode activates
+            textarea = new WebDriverWait(driver, Duration.ofSeconds(3)).until(driver -> {
+                List<WebElement> textareas = driver.findElements(By.tagName("textarea"));
+                for (WebElement ta : textareas) {
+                    try {
+                        String placeholder = ta.getAttribute("placeholder");
+                        // Skip the About textarea
+                        if (placeholder != null && placeholder.contains("Tell us about")) continue;
+                        if (ta.isDisplayed()) return ta;
+                    } catch (Exception e) { /* stale */ }
                 }
-                if (ta.isDisplayed()) {
-                    textarea = ta;
-                    break;
-                }
-            }
-        } catch (Exception e) { /* skip */ }
+                return null;
+            });
+        } catch (Exception e) { /* timeout */ }
 
         if (textarea != null) {
             scrollToElement(textarea);
@@ -791,33 +792,36 @@ public class YouthProfilePage extends BasePage {
         }
 
         try {
-            // In the DOM, icons are SVGs with class containing "cursor-pointer"
-            // React-icons renders: <svg class="text-blue-600 cursor-pointer shrink-0" ...>
-            // or: <svg class="text-[#bc4717] cursor-pointer shrink-0" ...>
-            // Use CSS selector which is more reliable for class matching
-            WebElement icon = section.findElement(By.cssSelector(
-                    "svg[class*='cursor-pointer']"));
-            scrollToElement(icon);
-            // Use Actions API for proper event dispatch that React captures
-            actions().moveToElement(icon).click().perform();
-            safeSleep(200); // Wait for React state update + form render
-            log.info("Clicked icon (Actions) for section: {}", sectionTitle);
-        } catch (Exception e) {
-            // Fallback: find via XPath and use JS MouseEvent dispatch
+            // Find the SVG icon with cursor-pointer class
+            WebElement icon = section.findElement(By.cssSelector("svg[class*='cursor-pointer']"));
+            
+            // Scroll the section into view first (not the SVG itself — avoids sticky header issues)
+            ((JavascriptExecutor) driver).executeScript(
+                    "arguments[0].scrollIntoView({block:'center'});", section);
+            safeSleep(200);
+            
+            // Use Selenium's native click via the parent element approach
+            // React 19 event delegation works with real DOM clicks
+            // Find the clickable parent (the SVG's direct container or the SVG itself)
             try {
+                icon.click();
+                safeSleep(500);
+                log.info("Clicked icon (native click) for section: {}", sectionTitle);
+            } catch (Exception clickEx) {
+                // If native click fails (intercepted), use JS to simulate a full click sequence
                 ((JavascriptExecutor) driver).executeScript(
-                        "var section = arguments[0];" +
-                        "var svgs = section.querySelectorAll('svg[class*=\"cursor-pointer\"]');" +
-                        "if(svgs.length > 0) {" +
-                        "  var evt = new MouseEvent('click', {bubbles:true, cancelable:true, view:window});" +
-                        "  svgs[0].dispatchEvent(evt);" +
-                        "}",
-                        section);
-                safeSleep(200);
-                log.info("Clicked icon (JS MouseEvent) for section: {}", sectionTitle);
-            } catch (Exception e2) {
-                log.warn("All icon click strategies failed for section: {}", sectionTitle);
+                        "var el = arguments[0];" +
+                        "el.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true}));" +
+                        "el.dispatchEvent(new MouseEvent('mousedown', {bubbles:true}));" +
+                        "el.dispatchEvent(new PointerEvent('pointerup', {bubbles:true}));" +
+                        "el.dispatchEvent(new MouseEvent('mouseup', {bubbles:true}));" +
+                        "el.dispatchEvent(new MouseEvent('click', {bubbles:true}));",
+                        icon);
+                safeSleep(500);
+                log.info("Clicked icon (full event sequence) for section: {}", sectionTitle);
             }
+        } catch (Exception e) {
+            log.warn("Edit icon not found for section: {}", sectionTitle);
         }
     }
 
