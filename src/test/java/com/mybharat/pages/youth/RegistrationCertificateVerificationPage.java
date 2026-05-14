@@ -1,5 +1,6 @@
 package com.mybharat.pages.youth;
 
+import java.io.File;
 import java.time.Duration;
 
 import org.apache.logging.log4j.LogManager;
@@ -15,53 +16,29 @@ import com.mybharat.pages.BasePage;
 import com.mybharat.utils.ConfigReader;
 
 /**
- * RegistrationCertificateVerificationPage - Handles certificate download on the
- * NEW React-based Youth profile page.
- * 
- * The certificates are in the "My Certifications" section on the About tab.
- * 
- * Flow:
- *   1. Navigate to profile page (if not already there)
- *   2. Scroll down to "My Certifications" section
- *   3. Click the certificate card to open modal
- *   4. Click "Download PNG" button in the modal
- *   5. Wait for download to complete
- *   6. Close the modal
- * 
- * React DOM structure:
- *   - Certificate card: <div class="border border-gray-300 rounded-xl shadow ... cursor-pointer">
- *   - Modal: <div class="fixed inset-0 z-999 bg-black/50 ...">
- *   - Close button: <button><IoIosCloseCircle size={36}/></button>
- *   - Download PNG: <button class="... bg-[#bc4717] ...">Download PNG</button>
- *   - Download PDF: <button class="... bg-[#bc4717] ...">Download PDF</button>
+ * RegistrationCertificateVerificationPage - Downloads certificate from React profile.
+ *
+ * New React UI flow:
+ *   1. Scroll to "My Certifications" section on About tab
+ *   2. Click the certificate card (has text "Registration Certificate")
+ *   3. Modal opens with certificate preview + Download PNG / Download PDF buttons
+ *   4. Click "Download PNG"
+ *   5. Verify file downloaded to Downloads folder
+ *   6. Close modal
  */
 public class RegistrationCertificateVerificationPage extends BasePage {
 
     private static final Logger log = LogManager.getLogger(RegistrationCertificateVerificationPage.class);
     private final ConfigReader config = new ConfigReader();
 
-    // Locators for the new React UI
-    private static final By CERTIFICATIONS_SECTION = By.xpath(
-            "//*[contains(text(),'My Certifications') or contains(text(),'Certifications')]");
-    private static final By CERTIFICATE_CARD = By.xpath(
-            "//div[contains(@class,'cursor-pointer') and contains(@class,'rounded-xl') and contains(@class,'shadow')]");
-    private static final By DOWNLOAD_PNG_BTN = By.xpath(
-            "//button[contains(text(),'Download PNG')]");
-    private static final By DOWNLOAD_PDF_BTN = By.xpath(
-            "//button[contains(text(),'Download PDF')]");
-    private static final By MODAL_CLOSE_BTN = By.xpath(
-            "//div[contains(@class,'fixed')]//button[contains(@class,'cursor-pointer')]");
-    private static final By MODAL_OVERLAY = By.xpath(
-            "//div[contains(@class,'fixed') and contains(@class,'inset-0')]");
-
     public RegistrationCertificateVerificationPage(WebDriver driver) {
         super(driver);
     }
 
     /**
-     * Download the registration certificate as PNG from the React profile page.
-     * 
-     * @return true if download was triggered successfully
+     * Download the registration certificate as PNG and verify file exists.
+     *
+     * @return true if certificate file was downloaded successfully
      */
     public boolean downloadCertificate() throws InterruptedException {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
@@ -71,94 +48,119 @@ public class RegistrationCertificateVerificationPage extends BasePage {
         if (profileUrl == null || profileUrl.isEmpty()) {
             profileUrl = config.getUrl() + "/youth-profile";
         }
-
-        String currentUrl = driver.getCurrentUrl();
-        if (!currentUrl.contains("youth-profile")) {
-            log.info("Navigating to profile page for certificate download...");
+        if (!driver.getCurrentUrl().contains("youth-profile")) {
             driver.get(profileUrl);
             waitForPageLoad();
             Thread.sleep(3000);
         }
 
-        // Scroll down to My Certifications section
+        // Scroll to bottom where "My Certifications" section is
         log.info("Scrolling to My Certifications section...");
         ((JavascriptExecutor) driver).executeScript("window.scrollTo(0, document.body.scrollHeight);");
-        Thread.sleep(1000);
+        Thread.sleep(2000);
 
-        // Find and scroll to the certifications section
+        // Step 1: Click the certificate card
+        // The card contains <p> with text "Registration Certificate"
+        WebElement certCard = null;
         try {
-            WebElement certSection = wait.until(ExpectedConditions.presenceOfElementLocated(CERTIFICATIONS_SECTION));
-            scrollToElement(certSection);
-            Thread.sleep(500);
+            // Find the card by its text content
+            certCard = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//p[text()='Registration Certificate']/ancestor::div[contains(@class,'cursor-pointer')]")));
         } catch (Exception e) {
-            log.warn("Certifications section header not found, scrolling more...");
-            ((JavascriptExecutor) driver).executeScript("window.scrollBy(0, 500);");
-            Thread.sleep(500);
+            // Fallback: try finding any clickable card in the certifications section
+            try {
+                certCard = wait.until(ExpectedConditions.elementToBeClickable(
+                        By.xpath("//div[contains(@class,'rounded-xl') and contains(@class,'cursor-pointer') and contains(@class,'shadow')]")));
+            } catch (Exception e2) {
+                log.error("Certificate card not found");
+                return false;
+            }
         }
 
-        // Click the certificate card to open the modal
+        scrollToElement(certCard);
+        Thread.sleep(500);
         try {
-            WebElement certCard = wait.until(ExpectedConditions.elementToBeClickable(CERTIFICATE_CARD));
-            scrollToElement(certCard);
-            Thread.sleep(300);
             certCard.click();
-            log.info("Clicked certificate card");
         } catch (Exception e) {
-            log.error("Certificate card not found: {}", e.getMessage());
-            return false;
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", certCard);
         }
+        log.info("✅ Clicked certificate card — modal should open");
+        Thread.sleep(2000);
 
-        // Wait for modal to appear
-        Thread.sleep(1000);
-
-        // Click "Download PNG" button
+        // Step 2: Click "Download PNG" button in the modal
+        WebElement downloadBtn = null;
         try {
-            WebElement downloadBtn = wait.until(ExpectedConditions.elementToBeClickable(DOWNLOAD_PNG_BTN));
-            scrollToElement(downloadBtn);
-            Thread.sleep(300);
-            downloadBtn.click();
-            log.info("Clicked 'Download PNG' button");
+            downloadBtn = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//button[contains(text(),'Download PNG')]")));
         } catch (Exception e) {
-            log.error("Download PNG button not found: {}", e.getMessage());
-            // Try closing modal before returning
-            closeModal();
-            return false;
+            // Try broader search
+            try {
+                downloadBtn = wait.until(ExpectedConditions.elementToBeClickable(
+                        By.xpath("//button[contains(.,'PNG')]")));
+            } catch (Exception e2) {
+                log.error("Download PNG button not found in modal");
+                closeModal();
+                return false;
+            }
         }
 
-        // Wait for download to process (html-to-image conversion + file save)
-        Thread.sleep(3000);
+        scrollToElement(downloadBtn);
+        Thread.sleep(500);
+        try {
+            downloadBtn.click();
+        } catch (Exception e) {
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", downloadBtn);
+        }
+        log.info("✅ Clicked 'Download PNG' button");
 
-        // Close the modal
+        // Step 3: Wait for download and verify file exists
+        String downloadDir = System.getProperty("downloadDir",
+                System.getProperty("user.home") + File.separator + "Downloads");
+
+        boolean downloaded = false;
+        log.info("Waiting for certificate file in: {}", downloadDir);
+        for (int i = 0; i < 15; i++) {
+            Thread.sleep(1000);
+            File dir = new File(downloadDir);
+            if (dir.exists() && dir.isDirectory()) {
+                File[] files = dir.listFiles();
+                if (files != null) {
+                    for (File file : files) {
+                        String name = file.getName().toLowerCase();
+                        if (name.endsWith(".png") && !name.contains(".crdownload")
+                                && (name.contains("certificate") || name.contains("registration"))) {
+                            log.info("✅ Certificate downloaded: {} ({}KB)", file.getName(), file.length() / 1024);
+                            downloaded = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (downloaded) break;
+        }
+
+        // Step 4: Close the modal
         closeModal();
 
-        log.info("✅ Certificate download triggered successfully");
-        return true;
+        if (!downloaded) {
+            log.warn("Certificate file not found in downloads folder after 15 seconds");
+        }
+        return downloaded;
     }
 
-    /**
-     * Close the certificate modal.
-     */
     private void closeModal() {
         try {
-            // Try clicking the X close button
-            WebElement closeBtn = driver.findElement(MODAL_CLOSE_BTN);
+            // Click the X close button (IoIosCloseCircle SVG inside a button)
+            WebElement closeBtn = driver.findElement(
+                    By.xpath("//div[contains(@class,'fixed')]//button[contains(@class,'cursor-pointer')]"));
             closeBtn.click();
             Thread.sleep(500);
-            log.info("Modal closed");
         } catch (Exception e) {
-            // Fallback: click the overlay backdrop to close
             try {
-                WebElement overlay = driver.findElement(MODAL_OVERLAY);
-                ((JavascriptExecutor) driver).executeScript(
-                        "arguments[0].click();", overlay);
-                Thread.sleep(500);
+                // Press Escape
+                driver.findElement(By.tagName("body")).sendKeys(org.openqa.selenium.Keys.ESCAPE);
             } catch (Exception e2) {
-                // Press Escape as last resort
-                try {
-                    driver.findElement(By.tagName("body")).sendKeys(org.openqa.selenium.Keys.ESCAPE);
-                } catch (Exception e3) {
-                    log.warn("Could not close modal");
-                }
+                log.warn("Could not close modal");
             }
         }
     }
