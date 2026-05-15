@@ -4,7 +4,7 @@
 <!--
   MYBharat Smoke Suite
   
-  Flow: Registration (+ save email + logout) → Login → Profile → Basic Info → Quiz
+  Flow: Public Page → Registration → Login → Profile → Basic Info → Quiz
   
   Run: mvn test -Denv=prod -Dbrowser=chrome
 -->
@@ -14,27 +14,35 @@
         <listener class-name="com.mybharat.listeners.TestListeners"/>
     </listeners>
 
-    <!-- Step 1: Registration → Submit popup → Save email to Excel → Logout -->
+    <!-- Step 1: Public Page - Header + Organization + Footer -->
+    <test name="Public Page">
+        <classes>
+            <class name="com.mybharat.tests.youth.PublicPageTest"/>
+        </classes>
+    </test>
+
+    <!-- Step 2: Registration → Submit popup → Save email to Excel → Logout -->
     <test name="Youth Registration">
         <classes>
             <class name="com.mybharat.tests.youth.YouthRegistrationTest"/>
         </classes>
     </test>
 
-    <!-- Step 2: Login with email from Excel (password: 25@March) -->
+    <!-- Step 3: Login with email from Excel (OTP based) -->
     <test name="Youth Login">
         <classes>
             <class name="com.mybharat.tests.youth.LoginTest"/>
         </classes>
     </test>
 
-    <!-- Step 3: Complete Youth Profile -->
+    <!-- Step 4: Complete Youth Profile -->
     <test name="Youth Profile Completion">
         <classes>
             <class name="com.mybharat.tests.youth.YouthProfileTest"/>
         </classes>
     </test>
 
+<<<<<<< Updated upstream
     <!-- Step 4: Registration Certificate Download -->
     <test name="Registration Certificate Verification">
         <classes>
@@ -42,6 +50,8 @@
         </classes>
     </test>
 
+=======
+>>>>>>> Stashed changes
     <!-- Step 5: Basic Info + Extract Email -->
     <test name="Youth Basic Info">
         <classes>
@@ -49,7 +59,7 @@
         </classes>
     </test>
 
-    <!-- Step 5: Attempt Quiz -->
+    <!-- Step 6: Quiz Attempt -->
     <test name="Quiz Attempt">
         <classes>
             <class name="com.mybharat.tests.youth.QuizAttemptTest"/>
