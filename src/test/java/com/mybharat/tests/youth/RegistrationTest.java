@@ -42,7 +42,8 @@ public class RegistrationTest extends BaseTest {
         registrationPage = new RegistrationPage(driver);
     }
 
-    @Test(priority = 1, groups = {"smoke", "registration"}, retryAnalyzer = Retry.class)
+    @Test(priority = 1, groups = {"smoke", "registration"}, retryAnalyzer = Retry.class,
+          description = "Register a new Indian youth user: Open app → Enter email → Verify OTP → Fill form → Submit → Save email to Excel")
     public void registerIndianYouth() throws Exception {
         log.info("Starting: Register Indian Youth");
 
@@ -69,7 +70,8 @@ public class RegistrationTest extends BaseTest {
     }
 
     @Test(priority = 2, groups = {"smoke", "registration"},
-          dependsOnMethods = "registerIndianYouth")
+          dependsOnMethods = "registerIndianYouth",
+          description = "Verify the registered user exists in the database via Redash API query")
     public void verifyUserInDatabase() throws Exception {
         log.info("Verifying user in DB: {}", registeredEmail);
 

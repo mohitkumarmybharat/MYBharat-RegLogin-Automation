@@ -28,7 +28,8 @@ public class BasicInfoTest extends BaseTest {
         profilePage = new YouthProfilePage(driver);
     }
 
-    @Test(priority = 1, groups = {"regression", "profile"}, retryAnalyzer = Retry.class)
+    @Test(priority = 1, groups = {"regression", "profile"}, retryAnalyzer = Retry.class,
+          description = "Navigate to Basic Info tab and extract the registered email from the profile form for verification")
     public void clickBasicInfoAndExtractEmail() throws Exception {
         log.info("Starting: Basic Info + Extract Email");
 

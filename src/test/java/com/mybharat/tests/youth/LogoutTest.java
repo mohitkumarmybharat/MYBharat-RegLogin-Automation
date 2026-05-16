@@ -32,7 +32,8 @@ public class LogoutTest extends BaseTest {
         logoutPage = new LogoutPage(driver);
     }
 
-    @Test(priority = 1, groups = {"smoke", "logout"}, retryAnalyzer = Retry.class)
+    @Test(priority = 1, groups = {"smoke", "logout"}, retryAnalyzer = Retry.class,
+          description = "Logout the currently signed-in user: Open user menu → Click logout → Verify redirect to home page")
     public void logoutUser() throws Exception {
         log.info("Starting: Logout current user");
         logoutPage.logout();
