@@ -104,6 +104,16 @@ public class BaseTest {
                     "--disable-dev-shm-usage"
                 );
                 options.setExperimentalOption("excludeSwitches", new String[]{"enable-automation"});
+
+                // Set download directory to project-local folder
+                String downloadDir = System.getProperty("user.dir") + File.separator + "downloads";
+                new File(downloadDir).mkdirs();
+                java.util.HashMap<String, Object> prefs = new java.util.HashMap<>();
+                prefs.put("download.default_directory", downloadDir);
+                prefs.put("download.prompt_for_download", false);
+                prefs.put("plugins.always_open_pdf_externally", true);
+                options.setExperimentalOption("prefs", prefs);
+
                 return new ChromeDriver(options);
             }
             case "headless": {
