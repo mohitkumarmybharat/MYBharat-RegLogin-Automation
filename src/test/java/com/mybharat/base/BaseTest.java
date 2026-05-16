@@ -124,8 +124,19 @@ public class BaseTest {
                     "--disable-gpu",
                     "--window-size=1920,1080",
                     "--no-sandbox",
-                    "--disable-dev-shm-usage"
+                    "--disable-dev-shm-usage",
+                    "--remote-allow-origins=*"
                 );
+
+                // Set download directory for headless mode
+                String headlessDownloadDir = System.getProperty("user.dir") + File.separator + "downloads";
+                new File(headlessDownloadDir).mkdirs();
+                java.util.HashMap<String, Object> headlessPrefs = new java.util.HashMap<>();
+                headlessPrefs.put("download.default_directory", headlessDownloadDir);
+                headlessPrefs.put("download.prompt_for_download", false);
+                headlessPrefs.put("plugins.always_open_pdf_externally", true);
+                options.setExperimentalOption("prefs", headlessPrefs);
+
                 return new ChromeDriver(options);
             }
             case "firefox": {

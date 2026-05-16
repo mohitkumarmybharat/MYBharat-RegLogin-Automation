@@ -45,7 +45,8 @@ public class QuizAttemptPage extends BasePage {
      * Navigate to quiz section and start the quiz.
      */
     public void startQuiz() throws Exception {
-        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(30));
+        int timeout = Boolean.parseBoolean(System.getProperty("ciMode", "false")) ? 60 : 30;
+        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(timeout));
 
         // Navigate to home page using config URL
         ConfigReader config = new ConfigReader();
