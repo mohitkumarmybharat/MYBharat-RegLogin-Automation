@@ -95,6 +95,16 @@ public class QuizAttemptPage extends BasePage {
         scrollPage(1000);
         Thread.sleep(1000);
 
+        // Extract quiz name from the card before clicking Start Quiz
+        try {
+            WebElement quizTitle = driver.findElement(By.xpath(
+                    "(//h4[@class='event_name fontchange18'])[1]"));
+            quizName = quizTitle.getText().trim();
+            System.out.println("Quiz Name: " + quizName);
+        } catch (Exception e) {
+            System.out.println("Could not extract quiz name from card, using default");
+        }
+
         // Click Start Quiz — try multiple locators
         WebElement startQuiz = null;
         try {
@@ -107,33 +117,6 @@ public class QuizAttemptPage extends BasePage {
         scrollToElement(startQuiz);
         Thread.sleep(500);
         jsClick(startQuiz);
-
-        // Extract quiz name from the page
-        try {
-            Thread.sleep(1000);
-            // Try common quiz title locators
-            String[] titleLocators = {
-                "//h3[contains(@class,'quiz')]", "//h4[contains(@class,'quiz')]",
-                "//div[contains(@class,'quiz-title')]", "//div[contains(@class,'quiz-name')]",
-                "//h3", "//h2[not(contains(@class,'nav'))]"
-            };
-            for (String loc : titleLocators) {
-                try {
-                    java.util.List<WebElement> titles = driver.findElements(By.xpath(loc));
-                    for (WebElement t : titles) {
-                        String text = t.getText().trim();
-                        if (text.length() > 3 && text.length() < 100 && !text.contains("Start") && !text.contains("MY Bharat")) {
-                            quizName = text;
-                            break;
-                        }
-                    }
-                    if (!quizName.equals("Competitive Quiz")) break;
-                } catch (Exception ignored) {}
-            }
-            System.out.println("Quiz Name: " + quizName);
-        } catch (Exception e) {
-            System.out.println("Could not extract quiz name, using default");
-        }
 
         // Save quiz name to file for workflow to read
         try {
