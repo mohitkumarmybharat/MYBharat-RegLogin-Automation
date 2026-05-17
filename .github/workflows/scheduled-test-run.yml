@@ -48,10 +48,11 @@ jobs:
           REPORT_FILE="target/surefire-reports/testng-results.xml"
           if [ -f "$REPORT_FILE" ]; then
             LINE=$(head -3 "$REPORT_FILE" | tr ' ' '\n')
-            TOTAL=$(echo "$LINE" | sed -n 's/.*total="\([0-9]*\)".*/\1/p')
             PASSED=$(echo "$LINE" | sed -n 's/.*passed="\([0-9]*\)".*/\1/p')
             FAILED=$(echo "$LINE" | sed -n 's/.*failed="\([0-9]*\)".*/\1/p')
             SKIPPED=$(echo "$LINE" | sed -n 's/.*skipped="\([0-9]*\)".*/\1/p')
+            # Total = passed + failed (exclude skipped retries)
+            TOTAL=$((${PASSED:-0} + ${FAILED:-0}))
           else
             TOTAL="N/A"
             PASSED="N/A"
