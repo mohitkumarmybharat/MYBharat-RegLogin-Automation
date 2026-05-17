@@ -23,8 +23,8 @@ jobs:
         run: |
           mvn test \
             -Denv=prod \
-            -Dbrowser=headless \
-            -Dsurefire.suiteXmlFiles=testSuites/testng-ci.xml
+            -Dbrowser=chrome \
+            -Dsurefire.suiteXmlFiles=testSuites/testng-all-modules.xml
 
       - name: Determine test result
         id: result
