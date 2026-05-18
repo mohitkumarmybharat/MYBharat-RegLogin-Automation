@@ -1,0 +1,122 @@
+name: Manual Test Run — Integration Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Test suite to run'
+        required: true
+        default: 'testSuites/testng-all-modules.xml'
+        type: choice
+        options:
+          - testSuites/testng-all-modules.xml
+          - testSuites/testng-registration.xml
+          - testSuites/testng-youth.xml
+          - testSuites/testng-login.xml
+          - testSuites/testng-ci.xml
+      browser:
+        description: 'Browser to use'
+        required: true
+        default: 'chrome'
+        type: choice
+        options:
+          - chrome
+          - headless
+          - firefox
+      environment:
+        description: 'Environment'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - prod
+          - beta
+
+jobs:
+  run-tests:
+    runs-on: self-hosted
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Test Suite
+        id: test_run
+        continue-on-error: true
+        run: |
+          echo "🚀 Running tests..."
+          echo "   Suite: ${{ github.event.inputs.suite }}"
+          echo "   Browser: ${{ github.event.inputs.browser }}"
+          echo "   Environment: ${{ github.event.inputs.environment }}"
+          echo ""
+          mvn test \
+            -Denv=${{ github.event.inputs.environment }} \
+            -Dbrowser=${{ github.event.inputs.browser }} \
+            -Dsurefire.suiteXmlFiles=${{ github.event.inputs.suite }}
+
+      - name: Determine test result
+        id: result
+        if: always()
+        run: |
+          if [ "${{ steps.test_run.outcome }}" == "success" ]; then
+            echo "status=ALL TESTS PASSED" >> $GITHUB_OUTPUT
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+          else
+            echo "status=SOME TESTS FAILED" >> $GITHUB_OUTPUT
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+          fi
+          echo "timestamp=$(TZ='Asia/Kolkata' date +'%d-%b-%Y %I:%M %p IST')" >> $GITHUB_OUTPUT
+
+      - name: Parse test results
+        id: parse
+        if: always()
+        run: |
+          REPORT_FILE="target/surefire-reports/testng-results.xml"
+          if [ -f "$REPORT_FILE" ]; then
+            LINE=$(head -3 "$REPORT_FILE" | tr ' ' '\n')
+            PASSED=$(echo "$LINE" | sed -n 's/.*passed="\([0-9]*\)".*/\1/p')
+            FAILED=$(echo "$LINE" | sed -n 's/.*failed="\([0-9]*\)".*/\1/p')
+            TOTAL=$((${PASSED:-0} + ${FAILED:-0}))
+          else
+            TOTAL="N/A"
+            PASSED="N/A"
+            FAILED="N/A"
+          fi
+          echo "total=${TOTAL:-0}" >> $GITHUB_OUTPUT
+          echo "passed=${PASSED:-0}" >> $GITHUB_OUTPUT
+          echo "failed=${FAILED:-0}" >> $GITHUB_OUTPUT
+
+      - name: Upload ExtentReport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-report-${{ github.run_number }}
+          path: reports/index.html
+          retention-days: 30
+
+      - name: Upload failure screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-screenshots-${{ github.run_number }}
+          path: reports/*.png
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Print Summary
+        if: always()
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "${{ steps.result.outputs.emoji }} ${{ steps.result.outputs.status }}"
+          echo "=========================================="
+          echo "Time:        ${{ steps.result.outputs.timestamp }}"
+          echo "Branch:      ${{ github.ref_name }}"
+          echo "Suite:       ${{ github.event.inputs.suite }}"
+          echo "Browser:     ${{ github.event.inputs.browser }}"
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Total:       ${{ steps.parse.outputs.total }}"
+          echo "Passed:      ${{ steps.parse.outputs.passed }}"
+          echo "Failed:      ${{ steps.parse.outputs.failed }}"
+          echo "=========================================="
