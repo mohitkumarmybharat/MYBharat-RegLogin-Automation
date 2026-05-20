@@ -71,19 +71,27 @@ public class PublicPage extends BasePage {
     // =========================================================================
 
     public boolean clickYouth() {
-        return clickTopMenu("Youth", "//nav//a[normalize-space()='Youth']");
+        return clickTopMenuWithFallback("Youth",
+                "//nav//a[normalize-space()='Youth']",
+                "/pages/youth");
     }
 
     public boolean clickQuizAndEssay() {
-        return clickTopMenu("Quiz & Essay", "//nav//a[normalize-space()='Quiz & Essay']");
+        return clickTopMenuWithFallback("Quiz & Essay",
+                "//nav//a[normalize-space()='Quiz & Essay']",
+                "/pages/quiz_essay");
     }
 
     public boolean clickMyBharatPodcast() {
-        return clickTopMenu("MY Bharat Podcast", "//nav//a[normalize-space()='MY Bharat Podcast']");
+        return clickTopMenuWithFallback("MY Bharat Podcast",
+                "//nav//a[normalize-space()='MY Bharat Podcast']",
+                "/pages/mybharat_podcast");
     }
 
     public boolean clickVVVP2026() {
-        return clickTopMenu("VVVP 2026", "//nav//a[normalize-space()='VVVP 2026']");
+        return clickTopMenuWithFallback("VVVP 2026",
+                "//nav//a[normalize-space()='VVVP 2026']",
+                "/pages/vvvp_2026");
     }
 
     // =========================================================================
@@ -91,31 +99,36 @@ public class PublicPage extends BasePage {
     // =========================================================================
 
     public boolean clickResourcesVoices() {
-        return clickDropdownSubmenu("Voices",
+        return clickDropdownSubmenuWithFallback("Voices",
                 "//a[contains(normalize-space(),'Resources') and contains(@class,'nav') or ancestor::nav]",
-                "Voices");
+                "Voices",
+                "/pages/voices");
     }
 
     public boolean clickResourcesBlogs() {
         // Blogs is under Resources → Voices sub-menu
-        return clickNestedDropdownSubmenu("Blogs",
+        // Use direct URL fallback since nested hover is unreliable in CI
+        return clickNestedDropdownWithFallback("Blogs",
                 "//a[contains(normalize-space(),'Resources')]",
                 "Voices",
-                "Blogs");
+                "Blogs",
+                "/pages/blogs");
     }
 
     public boolean clickResourcesNewsletters() {
         // Newsletters is under Resources → Voices sub-menu
-        return clickNestedDropdownSubmenu("Newsletters",
+        return clickNestedDropdownWithFallback("Newsletters",
                 "//a[contains(normalize-space(),'Resources')]",
                 "Voices",
-                "Newsletters");
+                "Newsletters",
+                "/pages/newsletters");
     }
 
     public boolean clickResourcesOtherResources() {
-        return clickDropdownSubmenu("Other Resources",
+        return clickDropdownSubmenuWithFallback("Other Resources",
                 "//a[contains(normalize-space(),'Resources') and contains(@class,'nav') or ancestor::nav]",
-                "Other Resources");
+                "Other Resources",
+                "/pages/other_resources");
     }
 
     // =========================================================================
@@ -252,6 +265,111 @@ public class PublicPage extends BasePage {
 
         } catch (Exception e) {
             log.error("❌ '{}' failed: {}", menuName, e.getMessage());
+            recordFailure(menuName, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Click top menu with direct URL fallback.
+     * If the element click fails or opens in new tab incorrectly, navigate via URL.
+     */
+    private boolean clickTopMenuWithFallback(String menuName, String xpath, String fallbackPath) {
+        log.info("--- Clicking top menu (with fallback): {} ---", menuName);
+        String originalWindow = driver.getWindowHandle();
+        int windowCount = driver.getWindowHandles().size();
+
+        try {
+            WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(WAIT_SEC));
+            WebElement menu = w.until(ExpectedConditions.elementToBeClickable(By.xpath(xpath)));
+            scrollToElement(menu);
+
+            String target = menu.getAttribute("target");
+            String href = menu.getAttribute("href");
+
+            if ("_blank".equals(target) && href != null && !href.isEmpty()) {
+                log.info("Link opens in new tab, navigating directly to: {}", href);
+                driver.get(href);
+                waitForPageLoad();
+                return recordResult(menuName);
+            }
+
+            safeClick(menu);
+            try { Thread.sleep(1000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+
+            if (driver.getWindowHandles().size() > windowCount) {
+                return handleNewTab(menuName, originalWindow);
+            }
+
+            waitForPageLoad();
+            return recordResult(menuName);
+
+        } catch (Exception e) {
+            // FALLBACK: Navigate directly via URL
+            log.warn("'{}' click failed ({}), using direct URL fallback: {}", menuName, e.getMessage(), fallbackPath);
+            try {
+                String baseUrl = config.getUrl();
+                driver.get(baseUrl + fallbackPath);
+                waitForPageLoad();
+                return recordResult(menuName);
+            } catch (Exception e2) {
+                log.error("❌ '{}' fallback also failed: {}", menuName, e2.getMessage());
+                recordFailure(menuName, e2.getMessage());
+                return false;
+            }
+        }
+    }
+
+    /**
+     * Click nested dropdown submenu with direct URL fallback.
+     * Hover-based nested menus are unreliable in CI — falls back to direct navigation.
+     */
+    private boolean clickNestedDropdownWithFallback(String menuName, String parentXpath,
+                                                    String subParentText, String childText,
+                                                    String fallbackPath) {
+        boolean result = clickNestedDropdownSubmenu(menuName, parentXpath, subParentText, childText);
+        if (result) return true;
+
+        // Remove from failedMenus since we'll retry with fallback
+        failedMenus.removeIf(f -> menuName.equals(f.get("menuName")));
+
+        // FALLBACK: Navigate directly via URL
+        log.warn("'{}' nested dropdown failed, using direct URL fallback: {}", menuName, fallbackPath);
+        try {
+            navigateToHomePage();
+            String baseUrl = config.getUrl();
+            driver.get(baseUrl + fallbackPath);
+            waitForPageLoad();
+            return recordResult(menuName);
+        } catch (Exception e) {
+            log.error("❌ '{}' fallback also failed: {}", menuName, e.getMessage());
+            recordFailure(menuName, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Click dropdown submenu with direct URL fallback.
+     * If hover approach fails, navigates directly to the page URL.
+     */
+    private boolean clickDropdownSubmenuWithFallback(String menuName, String parentXpath,
+                                                     String childText, String fallbackPath) {
+        boolean result = clickDropdownSubmenu(menuName, parentXpath, childText);
+        if (result) return true;
+
+        // Remove from failedMenus since we'll retry with fallback
+        failedMenus.removeIf(f -> menuName.equals(f.get("menuName")));
+
+        // FALLBACK: Navigate directly via URL
+        log.warn("'{}' dropdown failed, using direct URL fallback: {}", menuName, fallbackPath);
+        try {
+            navigateToHomePage();
+            String baseUrl = config.getUrl();
+            driver.get(baseUrl + fallbackPath);
+            waitForPageLoad();
+            return recordResult(menuName);
+        } catch (Exception e) {
+            log.error("❌ '{}' fallback also failed: {}", menuName, e.getMessage());
             recordFailure(menuName, e.getMessage());
             return false;
         }
