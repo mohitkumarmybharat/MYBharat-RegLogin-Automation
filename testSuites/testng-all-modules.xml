@@ -83,6 +83,13 @@
         </classes>
     </test>
 
+    <!-- Step 8: Blog Creation -->
+    <test name="Blog Creation">
+        <classes>
+            <class name="com.mybharat.tests.youth.BlogTest"/>
+        </classes>
+    </test>
+
     <!-- Module 7: CV Builder (TODO) -->
     <!--
     <test name="CV Builder">
