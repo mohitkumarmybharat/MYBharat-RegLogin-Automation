@@ -15,10 +15,13 @@ import com.mybharat.pages.BasePage;
 import com.mybharat.utils.ConfigReader;
 
 /**
- * VOEventNavigationPage - Navigates to the Add Event page.
+ * VOEventNavigationPage - After template creation, clicks "Events" in sidebar
+ * then clicks "Add Event" button.
  *
- * After template is created, navigates to Events section and clicks "Add Event".
- * The user should already be on the org/VFB section from the previous test.
+ * Flow (from screenshot):
+ *   After template is created → back on /orgeventmanagement/event_template
+ *   1. Click "Events" in left sidebar
+ *   2. Click "Add Event" button
  */
 public class VOEventNavigationPage extends BasePage {
 
@@ -30,44 +33,28 @@ public class VOEventNavigationPage extends BasePage {
     }
 
     /**
-     * Navigate to Add Event page.
-     * Assumes user is already logged in and on the org page from previous tests.
+     * Full navigation: Click Events in sidebar → Click Add Event
      */
     public void navigateToAddEvent() throws InterruptedException {
         dismissOverlay();
         clickEventsTab();
-        dismissOverlay();
         clickAddEventButton();
     }
 
     /**
-     * Click "Events" tab/link on the organisation page.
+     * Click "Events" link in the left sidebar.
+     * We're already on the org dashboard after template creation.
      */
     public void clickEventsTab() throws InterruptedException {
-        log.info("Clicking Events tab...");
+        log.info("Clicking Events tab in sidebar...");
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
 
         dismissOverlay();
 
-        WebElement eventsLink = null;
-        String[] locators = {
-                "//span[normalize-space()='Events']",
-                "//a[normalize-space()='Events']",
-                "//a[contains(@href,'event_list')]",
-                "//li//a[contains(text(),'Event')]",
-                "//span[contains(text(),'Events')]"
-        };
-
-        for (String xpath : locators) {
-            try {
-                eventsLink = wait.until(ExpectedConditions.elementToBeClickable(By.xpath(xpath)));
-                if (eventsLink != null) break;
-            } catch (Exception e) {
-                // try next
-            }
-        }
-
-        if (eventsLink != null) {
+        try {
+            WebElement eventsLink = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//a[normalize-space()='Events']"
+                            + " | //span[normalize-space()='Events']/ancestor::a")));
             scrollToElement(eventsLink);
             Thread.sleep(300);
             try {
@@ -75,17 +62,16 @@ public class VOEventNavigationPage extends BasePage {
             } catch (Exception e) {
                 ((JavascriptExecutor) driver).executeScript("arguments[0].click();", eventsLink);
             }
-            Thread.sleep(2000);
-            waitForPageLoad();
-            dismissOverlay();
             log.info("✅ Clicked Events tab");
-        } else {
-            log.warn("Events tab not found — trying direct URL");
-            driver.get(config.getUrl() + "/orgeventmanagement/event_list");
-            waitForPageLoad();
-            Thread.sleep(2000);
-            dismissOverlay();
+        } catch (Exception e) {
+            log.error("Events tab not found: {}", e.getMessage());
+            throw new RuntimeException("Events tab not found in sidebar");
         }
+
+        waitForPageLoad();
+        Thread.sleep(2000);
+        dismissOverlay();
+        log.info("✅ On Events page. URL: {}", driver.getCurrentUrl());
     }
 
     /**
@@ -97,35 +83,26 @@ public class VOEventNavigationPage extends BasePage {
 
         dismissOverlay();
 
-        WebElement addBtn = null;
-        String[] locators = {
-                "//a[contains(text(),'Add Event')]",
-                "//button[contains(text(),'Add Event')]",
-                "//a[contains(@href,'add_event')]",
-                "//a[contains(text(),'Create Event')]",
-                "//button[contains(text(),'Create Event')]"
-        };
-
-        for (String xpath : locators) {
-            try {
-                addBtn = wait.until(ExpectedConditions.elementToBeClickable(By.xpath(xpath)));
-                if (addBtn != null) break;
-            } catch (Exception e) {
-                // try next
-            }
-        }
-
-        if (addBtn != null) {
+        try {
+            WebElement addBtn = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//a[contains(text(),'Add Event')]"
+                            + " | //button[contains(text(),'Add Event')]"
+                            + " | //a[contains(@class,'btn') and contains(text(),'Add Event')]"
+                            + " | //*[contains(text(),'+ Add Event')]"
+                            + " | //a[contains(@href,'add_event')]")));
             scrollToElement(addBtn);
             Thread.sleep(300);
             safeClick(addBtn);
-            Thread.sleep(2000);
-            waitForPageLoad();
-            dismissOverlay();
-            log.info("✅ Clicked Add Event. URL: {}", driver.getCurrentUrl());
-        } else {
-            log.warn("Add Event button not found");
+            log.info("✅ Clicked Add Event");
+        } catch (Exception e) {
+            log.error("Add Event button not found: {}", e.getMessage());
+            throw new RuntimeException("Add Event button not found");
         }
+
+        waitForPageLoad();
+        Thread.sleep(2000);
+        dismissOverlay();
+        log.info("✅ On Add Event page. URL: {}", driver.getCurrentUrl());
     }
 
     /**
@@ -137,9 +114,11 @@ public class VOEventNavigationPage extends BasePage {
                     ExpectedConditions.invisibilityOfElementLocated(By.id("overlay")));
         } catch (Exception e) {
             ((JavascriptExecutor) driver).executeScript(
-                    "var o = document.getElementById('overlay'); if(o) o.style.display='none';" +
-                    "var l = document.getElementById('loader2'); if(l) l.style.display='none';" +
-                    "try { $('#overlay').hide(); $('#loader2').hide(); $('.loader').hide(); } catch(e) {}");
+                    "var overlay = document.getElementById('overlay');" +
+                    "if(overlay) overlay.style.display='none';" +
+                    "var loader = document.getElementById('loader2');" +
+                    "if(loader) loader.style.display='none';" +
+                    "try { $('#overlay').hide(); $('#loader2').hide(); } catch(e) {}");
             try { Thread.sleep(500); } catch (InterruptedException ignored) {}
         }
     }

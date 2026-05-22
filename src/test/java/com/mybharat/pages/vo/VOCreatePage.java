@@ -3,6 +3,7 @@ package com.mybharat.pages.vo;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -17,22 +18,23 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import com.mybharat.pages.BasePage;
 
 /**
- * VOCreatePage - Fills the "Add Event Template" form for VO (Volunteer for Bharat).
+ * VOCreatePage - Fills the "Add Template" form for VO (Volunteer for Bharat).
  *
  * URL: /orgeventmanagement/add_event_template
  *
- * Form fields:
- *   1. Event Template Name (required, max 150 chars)
- *   2. Event Type (radio: "Volunteer For Bharat" or "Health and Fitness")
- *   3. Specialization (multi-select, required)
- *   4. Sub Specialization (multi-select)
- *   5. Interest Tags (tag input)
- *   6. Participation Type (checkboxes: Volunteer, Attend, Participate)
- *   7. Event Medium (select: Phygital, Online, In Person - required)
- *   8. Event Description (textarea, 200 chars)
- *   9. Event Dates (Start/End date and time)
- *  10. Theme and Activities
- *  11. Submit ("Create" button)
+ * Form fields (from screenshot):
+ *   1. Event Template Name* (input + toggle)
+ *   2. Event Type (radio: "Volunteer for Bharat" / "Health and Fitness")
+ *   3. Specialization* (select dropdown)
+ *   4. Sub Specialization (select dropdown)
+ *   5. Add Interest Tags (tag input)
+ *   6. Select Participation Type (checkboxes: Volunteer, Attend, Participate)
+ *   7. Event Medium* (select: "Select Event Medium")
+ *   8. Event Description (textarea + toggle)
+ *   9. Event Start Date* / Event Start Time* / Event End Date* / Event End Time*
+ *  10. Theme* (input: "Enter Theme")
+ *  11. Activity 1* (input: "Enter Name") + Activity 2, 3, 4
+ *  12. "Create" button (bottom-right blue)
  */
 public class VOCreatePage extends BasePage {
 
@@ -43,116 +45,142 @@ public class VOCreatePage extends BasePage {
     }
 
     /**
-     * Fill the complete VO Template creation form and submit.
+     * Fill the complete Add Template form and click Create.
      */
     public void fillTemplateFormAndSubmit() throws InterruptedException {
-        log.info("Filling VO Template creation form...");
+        log.info("=== Filling Add Template form ===");
+        dismissOverlay();
 
         fillTemplateName();
         selectEventType();
         selectSpecialization();
+        selectSubSpecialization();
         selectParticipationType();
         selectEventMedium();
         fillDescription();
         fillEventDates();
         fillThemeAndActivities();
+        clickAllToggles();
 
-        log.info("✅ VO Template form filled completely");
+        log.info("✅ Template form filled completely");
     }
 
     /**
-     * Click the Submit/Create button.
+     * Click the "Create" button (bottom-right blue button).
      */
-    public void clickSubmit() throws InterruptedException {
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+    public void clickCreate() throws InterruptedException {
+        log.info("Clicking Create button...");
+        dismissOverlay();
+        scrollPage(500);
+        Thread.sleep(500);
 
-        try {
-            WebElement submitBtn = wait.until(ExpectedConditions.elementToBeClickable(
-                    By.xpath("//button[@id='submit-button' or @type='submit']"
-                            + " | //input[@type='submit']")));
-            scrollToElement(submitBtn);
-            Thread.sleep(300);
-            safeClick(submitBtn);
-            log.info("✅ Clicked Submit/Create button");
-        } catch (Exception e) {
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+
+        String[] locators = {
+                "//button[normalize-space()='Create']",
+                "//button[contains(text(),'Create')]",
+                "//input[@type='submit' and @value='Create']",
+                "//button[@type='submit']",
+                "//a[normalize-space()='Create']"
+        };
+
+        for (String xpath : locators) {
             try {
-                WebElement submitBtn = wait.until(ExpectedConditions.elementToBeClickable(
-                        By.xpath("//button[contains(text(),'Create') or contains(text(),'Submit')]")));
-                scrollToElement(submitBtn);
-                safeClick(submitBtn);
-                log.info("✅ Clicked Create button (text fallback)");
-            } catch (Exception e2) {
-                log.error("Submit button not found: {}", e2.getMessage());
-                throw new RuntimeException("Submit button not found on Create Template form");
+                WebElement createBtn = wait.until(ExpectedConditions.elementToBeClickable(By.xpath(xpath)));
+                scrollToElement(createBtn);
+                Thread.sleep(300);
+                safeClick(createBtn);
+                log.info("✅ Clicked Create button ({})", xpath);
+                Thread.sleep(3000);
+                dismissOverlay();
+                return;
+            } catch (Exception e) {
+                // try next
             }
         }
 
-        waitForPageLoad();
-        Thread.sleep(3000);
+        log.error("Create button not found with any locator");
+        throw new RuntimeException("Create button not found on Add Template form");
     }
 
     // =========================================================================
-    // Form Section Methods
+    // Form Fields
     // =========================================================================
 
+    /**
+     * Fill Event Template Name field.
+     * Input: placeholder "Enter the Event Template Name"
+     */
     private void fillTemplateName() throws InterruptedException {
         log.info("Filling Template Name...");
         String uniqueName = "VO Automation Template " + System.currentTimeMillis() % 100000;
 
-        WebElement nameInput = driver.findElement(
-                By.xpath("//input[@name='category_name']"));
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        WebElement nameInput = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.xpath("//input[@placeholder='Enter the Event Template Name' or @name='category_name']")));
         scrollToElement(nameInput);
         nameInput.clear();
         nameInput.sendKeys(uniqueName);
         Thread.sleep(300);
+
+        // Click the toggle switch next to Template Name
         clickNearestToggle(nameInput);
-        log.info("Template Name: {}", uniqueName);
+        log.info("✅ Template Name: {}", uniqueName);
     }
 
+    /**
+     * Select Event Type = "Volunteer for Bharat" radio button.
+     * Radio: "Volunteer for Bharat" is pre-selected (blue dot in screenshot)
+     */
     private void selectEventType() throws InterruptedException {
-        log.info("Selecting Event Type: Volunteer For Bharat...");
+        log.info("Selecting Event Type: Volunteer for Bharat...");
         try {
-            WebElement voRadio = driver.findElement(By.id("voRadioBtn"));
-            scrollToElement(voRadio);
+            // Try by label text
+            WebElement voRadio = driver.findElement(
+                    By.xpath("//input[@type='radio' and following-sibling::*[contains(text(),'Volunteer')] or @id='voRadioBtn']"
+                            + " | //label[contains(text(),'Volunteer for Bharat')]/preceding-sibling::input[@type='radio']"
+                            + " | //label[contains(text(),'Volunteer for Bharat')]//input[@type='radio']"));
             if (!voRadio.isSelected()) {
                 jsClick(voRadio);
+                log.info("✅ Selected 'Volunteer for Bharat'");
+            } else {
+                log.info("✅ 'Volunteer for Bharat' already selected");
             }
-            log.info("✅ Selected 'Volunteer For Bharat' radio");
         } catch (Exception e) {
-            try {
-                WebElement voRadio = driver.findElement(
-                        By.xpath("//input[@name='event_type' and @value='vo']"));
-                jsClick(voRadio);
-                log.info("✅ Selected 'vo' radio (fallback)");
-            } catch (Exception e2) {
-                log.warn("Event type radio not found: {}", e2.getMessage());
-            }
+            // It's pre-selected in the screenshot, so just continue
+            log.info("Event type radio not found — likely pre-selected, continuing");
         }
-        Thread.sleep(500);
+        Thread.sleep(300);
     }
 
+    /**
+     * Select Specialization from dropdown.
+     * Label: "Specialization*", placeholder: "Select Specialization"
+     */
     private void selectSpecialization() throws InterruptedException {
         log.info("Selecting Specialization...");
         try {
-            WebElement specSelect = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
-                    ExpectedConditions.presenceOfElementLocated(By.id("mySelect")));
+            WebElement specSelect = driver.findElement(
+                    By.xpath("//select[contains(@name,'specialization') or @id='mySelect' or @id='specialization']"
+                            + " | //select[./option[contains(text(),'Select Specialization')]]"));
             scrollToElement(specSelect);
             Select sel = new Select(specSelect);
-            if (sel.getOptions().size() > 0) {
-                sel.selectByIndex(0);
-                log.info("✅ Selected first specialization option");
+            if (sel.getOptions().size() > 1) {
+                sel.selectByIndex(1);
+                log.info("✅ Specialization selected: {}", sel.getFirstSelectedOption().getText());
             }
         } catch (Exception e) {
+            // Try Select2 widget
             try {
-                WebElement select2Container = driver.findElement(
-                        By.xpath("//div[contains(@class,'select2-container')]"));
-                select2Container.click();
+                WebElement select2 = driver.findElement(
+                        By.xpath("//span[contains(@class,'select2')]"));
+                select2.click();
                 Thread.sleep(500);
-                WebElement firstResult = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                WebElement firstOption = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
                         ExpectedConditions.elementToBeClickable(
-                                By.xpath("//li[contains(@class,'select2-result')]")));
-                firstResult.click();
-                log.info("✅ Selected specialization via Select2");
+                                By.xpath("//li[contains(@class,'select2-results__option')]")));
+                firstOption.click();
+                log.info("✅ Specialization selected via Select2");
             } catch (Exception e2) {
                 log.warn("Specialization selection failed: {}", e2.getMessage());
             }
@@ -160,47 +188,94 @@ public class VOCreatePage extends BasePage {
         Thread.sleep(300);
     }
 
-    private void selectParticipationType() throws InterruptedException {
-        log.info("Selecting Participation Type...");
+    /**
+     * Select Sub Specialization (optional).
+     */
+    private void selectSubSpecialization() throws InterruptedException {
+        log.info("Selecting Sub Specialization...");
         try {
-            WebElement volunteerCheckbox = driver.findElement(
-                    By.xpath("//input[@name='youth_action[]' and @value='1']"
-                            + " | //input[@name='youth_actions[]' and @value='1']"));
-            scrollToElement(volunteerCheckbox);
-            if (!volunteerCheckbox.isSelected()) {
-                jsClick(volunteerCheckbox);
+            WebElement subSpecSelect = driver.findElement(
+                    By.xpath("//select[contains(@name,'sub_specialization') or @id='sub_specialization']"
+                            + " | //select[./option[contains(text(),'Sub Specialization') or contains(text(),'sub specialization')]]"));
+            scrollToElement(subSpecSelect);
+            Select sel = new Select(subSpecSelect);
+            if (sel.getOptions().size() > 1) {
+                sel.selectByIndex(1);
+                log.info("✅ Sub Specialization selected");
             }
-            log.info("✅ Checked 'Volunteer' participation type");
         } catch (Exception e) {
-            log.info("Participation type checkbox not found: {}", e.getMessage());
+            log.info("Sub Specialization not available or not required — skipping");
         }
         Thread.sleep(300);
     }
 
+    /**
+     * Select Participation Type checkboxes.
+     * Options: Volunteer, Attend, Participate
+     */
+    private void selectParticipationType() throws InterruptedException {
+        log.info("Selecting Participation Type...");
+        String[] types = {"Volunteer", "Attend", "Participate"};
+
+        for (String type : types) {
+            try {
+                WebElement checkbox = driver.findElement(
+                        By.xpath("//label[contains(text(),'" + type + "')]//input[@type='checkbox']"
+                                + " | //input[@type='checkbox' and following-sibling::*[contains(text(),'" + type + "')]]"
+                                + " | //label[contains(text(),'" + type + "')]/preceding-sibling::input[@type='checkbox']"));
+                if (!checkbox.isSelected()) {
+                    jsClick(checkbox);
+                    log.info("✅ Checked '{}'", type);
+                }
+            } catch (Exception e) {
+                log.info("Checkbox '{}' not found — skipping", type);
+            }
+        }
+        Thread.sleep(300);
+    }
+
+    /**
+     * Select Event Medium from dropdown.
+     * Options: Phygital, Online, In Person
+     */
     private void selectEventMedium() throws InterruptedException {
         log.info("Selecting Event Medium...");
         try {
             WebElement mediumSelect = driver.findElement(
-                    By.xpath("//select[@name='event_medium' or @name='eventMode']"));
+                    By.xpath("//select[contains(@name,'event_medium') or contains(@name,'eventMode')]"
+                            + " | //select[./option[contains(text(),'Select Event Medium')]]"));
             scrollToElement(mediumSelect);
             Select sel = new Select(mediumSelect);
-            sel.selectByVisibleText("In Person");
-            log.info("✅ Selected Event Medium: In Person");
+            // Try "In Person" first, then any available option
+            try {
+                sel.selectByVisibleText("In Person");
+            } catch (Exception e) {
+                if (sel.getOptions().size() > 1) {
+                    sel.selectByIndex(1);
+                }
+            }
+            log.info("✅ Event Medium selected: {}", sel.getFirstSelectedOption().getText());
         } catch (Exception e) {
             log.warn("Event Medium dropdown not found: {}", e.getMessage());
         }
         Thread.sleep(300);
     }
 
+    /**
+     * Fill Event Description textarea.
+     */
     private void fillDescription() throws InterruptedException {
-        log.info("Filling Description...");
+        log.info("Filling Event Description...");
         try {
             WebElement descTextarea = driver.findElement(
-                    By.xpath("//textarea[@name='category_description' or @id='exampleTextarea' or @id='description']"));
+                    By.xpath("//textarea[contains(@name,'description') or @id='exampleTextarea' or @name='category_description']"
+                            + " | //label[contains(text(),'Event Description')]/following::textarea[1]"));
             scrollToElement(descTextarea);
             descTextarea.clear();
             descTextarea.sendKeys("Automation test - Volunteer opportunity for community outreach and youth engagement activities.");
             log.info("✅ Description filled");
+
+            // Click toggle next to description
             clickNearestToggle(descTextarea);
         } catch (Exception e) {
             log.warn("Description textarea not found: {}", e.getMessage());
@@ -208,81 +283,46 @@ public class VOCreatePage extends BasePage {
         Thread.sleep(300);
     }
 
+    /**
+     * Fill Event Start Date, Start Time, End Date, End Time.
+     * Uses xdsoft datetimepicker calendar with JS fallback.
+     */
     private void fillEventDates() throws InterruptedException {
         log.info("Filling Event Dates and Times...");
-        selectDateFromCalendar("start_date", 1);
+        scrollPage(300);
         Thread.sleep(500);
-        fillTimeField("start_time", "09", "00");
-        Thread.sleep(300);
-        selectDateFromCalendar("end_date", 2);
+
+        // Event Start Date (1 month ahead, day 15)
+        setDateField("start_date", 1);
         Thread.sleep(500);
-        fillTimeField("end_time", "17", "00");
+
+        // Event Start Time
+        setTimeField("start_time", "09:00");
+        Thread.sleep(300);
+
+        // Event End Date (2 months ahead, day 15)
+        setDateField("end_date", 2);
+        Thread.sleep(500);
+
+        // Event End Time
+        setTimeField("end_time", "17:00");
         Thread.sleep(300);
     }
 
-    private void selectDateFromCalendar(String inputId, int monthsAhead) {
-        try {
-            WebElement dateInput = driver.findElement(By.id(inputId));
-            scrollToElement(dateInput);
-            dateInput.click();
-            safeSleep(1000);
-
-            for (int i = 0; i < monthsAhead; i++) {
-                WebElement nextBtn = driver.findElement(
-                        By.cssSelector(".xdsoft_datetimepicker[style*='display: block'] .xdsoft_next"));
-                nextBtn.click();
-                safeSleep(400);
-            }
-
-            WebElement dayCell = driver.findElement(
-                    By.xpath("//div[contains(@class,'xdsoft_datetimepicker') and contains(@style,'display: block')]"
-                            + "//td[contains(@class,'xdsoft_date') and not(contains(@class,'xdsoft_other_month')) and not(contains(@class,'xdsoft_disabled'))]"
-                            + "/div[text()='15']"));
-            dayCell.click();
-            safeSleep(500);
-            log.info("✅ Date selected for #{}: 15th, {} month(s) ahead", inputId, monthsAhead);
-        } catch (Exception e) {
-            log.warn("Calendar failed for #{}. Using JS fallback", inputId);
-            try {
-                WebElement dateInput = driver.findElement(By.id(inputId));
-                LocalDate futureDate = LocalDate.now().plusMonths(monthsAhead).withDayOfMonth(15);
-                String dateStr = futureDate.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
-                ((JavascriptExecutor) driver).executeScript(
-                        "var el = arguments[0]; el.readOnly = false; el.value = arguments[1];" +
-                        "$(el).trigger('change');", dateInput, dateStr);
-                log.info("✅ Date set via JS for #{}: {}", inputId, dateStr);
-            } catch (Exception e2) {
-                log.error("Date completely failed for #{}: {}", inputId, e2.getMessage());
-            }
-        }
-    }
-
-    private void fillTimeField(String inputId, String hours, String minutes) {
-        try {
-            WebElement timeInput = driver.findElement(By.id(inputId));
-            scrollToElement(timeInput);
-            String timeValue = hours + ":" + minutes;
-            ((JavascriptExecutor) driver).executeScript(
-                    "var el = arguments[0];" +
-                    "var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;" +
-                    "nativeSetter.call(el, arguments[1]);" +
-                    "el.dispatchEvent(new Event('input', {bubbles: true}));" +
-                    "el.dispatchEvent(new Event('change', {bubbles: true}));",
-                    timeInput, timeValue);
-            log.info("✅ Time set for #{}: {}", inputId, timeValue);
-        } catch (Exception e) {
-            log.warn("Time field #{} failed: {}", inputId, e.getMessage());
-        }
-    }
-
+    /**
+     * Fill Theme and Activity fields.
+     * Theme*: input placeholder "Enter Theme"
+     * Activity 1*: input placeholder "Enter Name"
+     */
     private void fillThemeAndActivities() throws InterruptedException {
         log.info("Filling Theme and Activities...");
         scrollPage(400);
         Thread.sleep(500);
 
+        // Theme
         try {
             WebElement themeInput = driver.findElement(
-                    By.xpath("//input[@name='theme' or @placeholder='Enter Theme' or contains(@placeholder,'Theme')]"));
+                    By.xpath("//input[@placeholder='Enter Theme' or @name='theme' or contains(@placeholder,'Theme')]"));
             scrollToElement(themeInput);
             themeInput.clear();
             themeInput.sendKeys("Community Service Drive");
@@ -292,26 +332,41 @@ public class VOCreatePage extends BasePage {
         }
         Thread.sleep(300);
 
+        // Activity 1 (required)
         try {
             WebElement activity1 = driver.findElement(
-                    By.xpath("(//input[contains(@name,'activity') or contains(@placeholder,'Enter Name')])[1]"));
+                    By.xpath("(//input[@placeholder='Enter Name'])[1]"
+                            + " | (//input[contains(@name,'activity')])[1]"));
             scrollToElement(activity1);
             activity1.clear();
             activity1.sendKeys("Awareness Campaign");
             log.info("✅ Activity 1 filled");
         } catch (Exception e) {
-            log.warn("Activity 1 input not found: {}", e.getMessage());
+            log.warn("Activity 1 not found: {}", e.getMessage());
         }
         Thread.sleep(300);
+
+        // Activity 2 (optional)
+        try {
+            WebElement activity2 = driver.findElement(
+                    By.xpath("(//input[@placeholder='Enter Name'])[2]"));
+            activity2.clear();
+            activity2.sendKeys("Tree Plantation");
+            log.info("✅ Activity 2 filled");
+        } catch (Exception e) {
+            // optional — skip
+        }
     }
 
     /**
      * Click ALL toggle switches on the page to enable them.
+     * Toggles are: <label class="switch"><input type="checkbox"><span class="slider round"></span></label>
      */
     public void clickAllToggles() throws InterruptedException {
         log.info("Clicking all toggle switches...");
-        java.util.List<WebElement> toggles = driver.findElements(
-                By.xpath("//label[contains(@class,'switch')]//span[contains(@class,'slider')]"));
+        List<WebElement> toggles = driver.findElements(
+                By.xpath("//label[contains(@class,'switch')]//span[contains(@class,'slider')]"
+                        + " | //label[contains(@class,'switch')]//input[@type='checkbox']"));
         int clicked = 0;
         for (WebElement toggle : toggles) {
             try {
@@ -326,21 +381,112 @@ public class VOCreatePage extends BasePage {
         log.info("✅ Clicked {} toggle switches", clicked);
     }
 
+    // =========================================================================
+    // Helper Methods
+    // =========================================================================
+
+    private void setDateField(String inputId, int monthsAhead) {
+        try {
+            WebElement dateInput = driver.findElement(By.id(inputId));
+            scrollToElement(dateInput);
+            dateInput.click();
+            safeSleep(1000);
+
+            // Navigate months forward in xdsoft calendar
+            for (int i = 0; i < monthsAhead; i++) {
+                try {
+                    WebElement nextBtn = driver.findElement(
+                            By.cssSelector(".xdsoft_datetimepicker[style*='display: block'] .xdsoft_next"));
+                    nextBtn.click();
+                    safeSleep(400);
+                } catch (Exception e) {
+                    break;
+                }
+            }
+
+            // Pick day 15
+            try {
+                WebElement dayCell = driver.findElement(
+                        By.xpath("//div[contains(@class,'xdsoft_datetimepicker') and contains(@style,'display: block')]"
+                                + "//td[contains(@class,'xdsoft_date') and not(contains(@class,'xdsoft_other_month'))"
+                                + " and not(contains(@class,'xdsoft_disabled'))]/div[text()='15']"));
+                dayCell.click();
+                safeSleep(500);
+                log.info("✅ Date selected for #{}: 15th, {} month(s) ahead", inputId, monthsAhead);
+                return;
+            } catch (Exception e) {
+                // Calendar day not found
+            }
+        } catch (Exception e) {
+            // Input not found by ID
+        }
+
+        // JS fallback — set value directly
+        log.warn("Calendar failed for #{}, using JS fallback", inputId);
+        try {
+            WebElement dateInput = driver.findElement(By.id(inputId));
+            LocalDate futureDate = LocalDate.now().plusMonths(monthsAhead).withDayOfMonth(15);
+            String dateStr = futureDate.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+            ((JavascriptExecutor) driver).executeScript(
+                    "var el = arguments[0];" +
+                    "el.readOnly = false;" +
+                    "el.value = arguments[1];" +
+                    "el.dispatchEvent(new Event('change', {bubbles: true}));" +
+                    "try { $(el).trigger('change'); } catch(e) {}",
+                    dateInput, dateStr);
+            log.info("✅ Date set via JS for #{}: {}", inputId, dateStr);
+        } catch (Exception e2) {
+            log.error("Date completely failed for #{}: {}", inputId, e2.getMessage());
+        }
+    }
+
+    private void setTimeField(String inputId, String timeValue) {
+        try {
+            WebElement timeInput = driver.findElement(By.id(inputId));
+            scrollToElement(timeInput);
+            ((JavascriptExecutor) driver).executeScript(
+                    "var el = arguments[0];" +
+                    "var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;" +
+                    "nativeSetter.call(el, arguments[1]);" +
+                    "el.dispatchEvent(new Event('input', {bubbles: true}));" +
+                    "el.dispatchEvent(new Event('change', {bubbles: true}));",
+                    timeInput, timeValue);
+            log.info("✅ Time set for #{}: {}", inputId, timeValue);
+        } catch (Exception e) {
+            log.warn("Time field #{} not found: {}", inputId, e.getMessage());
+        }
+    }
+
     private void clickNearestToggle(WebElement nearElement) {
         try {
             WebElement toggle = nearElement.findElement(
-                    By.xpath("./ancestor::div[contains(@class,'row') or contains(@class,'col')]"
+                    By.xpath("./ancestor::div[contains(@class,'row') or contains(@class,'col') or contains(@class,'form')]"
                             + "//label[contains(@class,'switch')]//span[contains(@class,'slider')]"));
             jsClick(toggle);
-            try { Thread.sleep(200); } catch (InterruptedException ignored) {}
+            safeSleep(200);
+            log.info("✅ Toggle clicked");
         } catch (Exception e) {
             try {
                 WebElement toggle = nearElement.findElement(
                         By.xpath("./ancestor::div[1]//span[contains(@class,'slider')]"));
                 jsClick(toggle);
+                safeSleep(200);
             } catch (Exception e2) {
-                // No toggle found
+                // No toggle found — not all fields have toggles
             }
+        }
+    }
+
+    private void dismissOverlay() {
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(10)).until(
+                    ExpectedConditions.invisibilityOfElementLocated(By.id("overlay")));
+        } catch (Exception e) {
+            ((JavascriptExecutor) driver).executeScript(
+                    "var o = document.getElementById('overlay'); if(o) o.style.display='none';" +
+                    "var l = document.getElementById('loader2'); if(l) l.style.display='none';" +
+                    "try { $('#overlay').hide(); $('#loader2').hide(); $('.loader').hide(); } catch(e) {}");
+            safeSleep(500);
         }
     }
 

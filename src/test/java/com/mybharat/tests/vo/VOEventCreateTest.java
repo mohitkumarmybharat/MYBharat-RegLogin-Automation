@@ -7,17 +7,13 @@ import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
 
 import com.mybharat.base.BaseTest;
-
 import com.mybharat.listeners.TestListeners;
 import com.mybharat.pages.vo.VOEventCreatePage;
 
 /**
- * VOEventCreateTest - Fills the Add Event form, previews, and publishes.
+ * VOEventCreateTest - Fills the Add Event form, clicks Preview, then Publish.
  *
  * Prerequisite: Must be on the Add Event page (after VOEventNavigationTest).
- *
- * Run:
- *   mvn test -Denv=beta -Dbrowser=chrome -Dsurefire.suiteXmlFiles=testSuites/testng-vo.xml
  */
 @Listeners(TestListeners.class)
 public class VOEventCreateTest extends BaseTest {
@@ -35,18 +31,18 @@ public class VOEventCreateTest extends BaseTest {
     public void createVOEvent() throws Exception {
         log.info("=== Starting: Create VO Event ===");
 
-        // Fill the event form
-        eventCreatePage.fillEventForm();
+        // Fill form and click Preview
+        eventCreatePage.fillEventFormAndPreview();
 
-        // Preview
-        eventCreatePage.clickPreview();
-
-        // Publish
+        // Click Publish on preview page
         eventCreatePage.clickPublish();
 
         // Save event name to Excel for youth-side tests
         eventCreatePage.saveEventNameToExcel();
 
-        log.info("=== ✅ VO Event Created: {} ===", eventCreatePage.getEventName());
+        // Logout
+        eventCreatePage.logout();
+
+        log.info("=== ✅ VO Event Created and Logged Out: {} ===", eventCreatePage.getEventName());
     }
 }

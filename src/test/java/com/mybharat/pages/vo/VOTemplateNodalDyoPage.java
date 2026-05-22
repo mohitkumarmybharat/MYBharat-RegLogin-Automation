@@ -15,15 +15,16 @@ import com.mybharat.pages.BasePage;
 import com.mybharat.utils.ConfigReader;
 
 /**
- * VOTemplateNodalDyoPage - Navigates from Profile → View More → Org → Volunteer for Bharat → Create Template.
+ * VOTemplateNodalDyoPage - Same flow as ELPNavigationPage but clicks
+ * "Volunteer for Bharat" tab instead of "Experiential Learning".
  *
- * Same pattern as ELP:
+ * Flow:
  *   1. Navigate to /youth-profile
  *   2. Scroll to bottom → Click "View More" in Organizations section
  *   3. Click first Organisation in the table
- *   4. Click "Volunteer for Bharat" tab (instead of "Experiential Learning")
- *   5. Click "Create Template" button
- *   → Lands on /orgeventmanagement/add_event_template
+ *   4. Click "Volunteer for Bharat" tab
+ *   5. Click "Templates -Nodal/DYO" in sidebar
+ *   6. Click "Create Template" button
  */
 public class VOTemplateNodalDyoPage extends BasePage {
 
@@ -35,11 +36,11 @@ public class VOTemplateNodalDyoPage extends BasePage {
     }
 
     /**
-     * Full navigation: Profile → View More → Org → Volunteer for Bharat → Create Template
+     * Full navigation: Profile → View More → Org → Templates -Nodal/DYO → Create Template
      */
     public void navigateToCreateTemplate() throws InterruptedException {
         navigateToProfileAndClickViewMore();
-        clickVolunteerForBharatTab();
+        clickTemplatesNodalDyo();
         clickCreateTemplateButton();
     }
 
@@ -129,19 +130,29 @@ public class VOTemplateNodalDyoPage extends BasePage {
 
     /**
      * Click on "Volunteer for Bharat" tab on the organisation page.
-     * Waits for any overlay/loader to disappear first.
+     * Same as ELP's clickExperientialLearning() but for VFB tab.
      */
     public void clickVolunteerForBharatTab() throws InterruptedException {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
 
-        // Wait for overlay to disappear
-        dismissOverlay();
+        // Step 1: Wait for overlay to disappear, force-hide if stuck
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(10)).until(
+                    ExpectedConditions.invisibilityOfElementLocated(By.id("overlay")));
+            log.info("Overlay disappeared");
+        } catch (Exception e) {
+            ((JavascriptExecutor) driver).executeScript(
+                    "var overlay = document.getElementById('overlay');" +
+                    "if(overlay) overlay.style.display='none';");
+            Thread.sleep(500);
+            log.info("Overlay force-hidden via JS");
+        }
+
+        // Step 2: Click "Volunteer for Bharat" tab
 
         try {
             WebElement voTab = wait.until(ExpectedConditions.presenceOfElementLocated(
-                    By.xpath("//span[normalize-space()='Volunteer for Bharat']"
-                            + " | //a[normalize-space()='Volunteer for Bharat']"
-                            + " | //span[contains(text(),'Volunteer for Bharat')]")));
+                    By.xpath("//span[normalize-space()='Volunteer for Bharat']")));
             scrollToElement(voTab);
             Thread.sleep(500);
             try {
@@ -162,48 +173,61 @@ public class VOTemplateNodalDyoPage extends BasePage {
     }
 
     /**
-     * Click "Create Template" button on the Volunteer for Bharat section.
+     * Click "Templates -Nodal/DYO" in the left sidebar.
      */
-    public void clickCreateTemplateButton() throws InterruptedException {
-        log.info("Clicking Create Template button...");
+    public void clickTemplatesNodalDyo() throws InterruptedException {
+        log.info("Clicking 'Templates -Nodal/DYO' in sidebar...");
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
 
         dismissOverlay();
 
-        WebElement createBtn = null;
-        String[] locators = {
-                "//a[contains(text(),'Create Template')]",
-                "//button[contains(text(),'Create Template')]",
-                "//a[contains(@href,'add_event_template')]",
-                "//a[contains(text(),'Add Template')]",
-                "//button[contains(text(),'Add Template')]"
-        };
-
-        for (String xpath : locators) {
-            try {
-                createBtn = wait.until(ExpectedConditions.elementToBeClickable(By.xpath(xpath)));
-                if (createBtn != null) break;
-            } catch (Exception e) {
-                // try next
-            }
+        try {
+            WebElement templatesLink = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//a[contains(text(),'Templates') and contains(text(),'Nodal')]"
+                            + " | //a[contains(text(),'Templates -Nodal/DYO')]"
+                            + " | //a[contains(@href,'event_template')]")));
+            scrollToElement(templatesLink);
+            Thread.sleep(300);
+            safeClick(templatesLink);
+            log.info("✅ Clicked 'Templates -Nodal/DYO'");
+        } catch (Exception e) {
+            log.error("Templates -Nodal/DYO link not found: {}", e.getMessage());
+            throw new RuntimeException("Templates -Nodal/DYO link not found in sidebar");
         }
 
-        if (createBtn != null) {
+        waitForPageLoad();
+        Thread.sleep(2000);
+        dismissOverlay();
+        log.info("✅ On Templates page. URL: {}", driver.getCurrentUrl());
+    }
+
+    /**
+     * Click "Create Template" button on the template list page.
+     */
+    public void clickCreateTemplateButton() throws InterruptedException {
+        log.info("Clicking 'Create Template' button...");
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+
+        dismissOverlay();
+
+        try {
+            WebElement createBtn = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//a[normalize-space()='Create Template']"
+                            + " | //button[normalize-space()='Create Template']"
+                            + " | //a[contains(@href,'add_event_template')]")));
             scrollToElement(createBtn);
             Thread.sleep(300);
             safeClick(createBtn);
-            Thread.sleep(2000);
-            waitForPageLoad();
-            dismissOverlay();
-            log.info("✅ Clicked Create Template. URL: {}", driver.getCurrentUrl());
-        } else {
-            log.warn("Create Template button not found — navigating directly");
-            driver.get(config.getUrl() + "/orgeventmanagement/add_event_template");
-            waitForPageLoad();
-            Thread.sleep(2000);
-            dismissOverlay();
-            log.info("✅ Navigated directly to Create Template page");
+            log.info("✅ Clicked 'Create Template'");
+        } catch (Exception e) {
+            log.error("Create Template button not found: {}", e.getMessage());
+            throw new RuntimeException("Create Template button not found");
         }
+
+        waitForPageLoad();
+        Thread.sleep(2000);
+        dismissOverlay();
+        log.info("✅ On Add Template page. URL: {}", driver.getCurrentUrl());
     }
 
     /**
@@ -213,7 +237,6 @@ public class VOTemplateNodalDyoPage extends BasePage {
         try {
             new WebDriverWait(driver, Duration.ofSeconds(10)).until(
                     ExpectedConditions.invisibilityOfElementLocated(By.id("overlay")));
-            log.info("Overlay disappeared");
         } catch (Exception e) {
             ((JavascriptExecutor) driver).executeScript(
                     "var o = document.getElementById('overlay'); if(o) o.style.display='none';" +

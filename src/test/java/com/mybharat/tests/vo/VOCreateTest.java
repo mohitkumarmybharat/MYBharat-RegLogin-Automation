@@ -35,14 +35,11 @@ public class VOCreateTest extends BaseTest {
     public void createVOTemplate() throws Exception {
         log.info("=== Starting: Create VO Template ===");
 
-        // Fill the template form
+        // Fill the template form (includes clicking all toggles)
         voCreatePage.fillTemplateFormAndSubmit();
 
-        // Click all toggles to enable fields at all hierarchy levels
-        voCreatePage.clickAllToggles();
-
-        // Submit the form
-        voCreatePage.clickSubmit();
+        // Click Create button
+        voCreatePage.clickCreate();
 
         log.info("=== ✅ VO Template Created PASSED ===");
     }

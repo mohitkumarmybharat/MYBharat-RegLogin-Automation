@@ -12,6 +12,8 @@ import org.apache.logging.log4j.Logger;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.WindowType;
@@ -79,7 +81,15 @@ public class VOLoginPage extends BasePage {
         String url = config.getUrl();
         log.info("Navigating to: {}", url);
         driver.get(url);
-        waitForPageLoad();
+        // Don't use waitForPageLoad() — prod site has stuck AJAX that blocks readyState
+        // Instead wait for a key element to appear (Sign In button)
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(30)).until(
+                    ExpectedConditions.presenceOfElementLocated(
+                            By.xpath("//span[normalize-space()='Sign In'] | //a[contains(text(),'Sign In')]")));
+        } catch (Exception e) {
+            log.warn("Sign In not found after 30s, continuing anyway...");
+        }
         safeSleep(1000);
     }
 
@@ -197,50 +207,49 @@ public class VOLoginPage extends BasePage {
     }
 
     private void dismissSubmitPopupIfPresent() {
-        try {
-            WebDriverWait shortWait = new WebDriverWait(driver, Duration.ofSeconds(5));
+        safeSleep(3000); // Wait for popup to fully appear
 
-            // Try the "Update newly introduced fields" popup — click Submit button
-            WebElement submitBtn = shortWait.until(ExpectedConditions.elementToBeClickable(
-                    By.xpath("//button[normalize-space()='Submit']"
-                            + " | //button[contains(text(),'Submit')]")));
+        // Try multiple approaches to dismiss the popup
+        try {
+            // Approach 1: Click Submit button directly
+            WebElement submitBtn = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                    ExpectedConditions.elementToBeClickable(
+                            By.xpath("//button[normalize-space()='Submit']")));
             jsClick(submitBtn);
-            log.info("✅ Dismissed 'Update fields' popup (Submit)");
+            log.info("✅ Dismissed popup (Submit button)");
             safeSleep(2000);
-        } catch (Exception e0) {
-            try {
-                WebElement popup = new WebDriverWait(driver, Duration.ofSeconds(3)).until(
-                        ExpectedConditions.elementToBeClickable(
-                                By.xpath("(//button[contains(@class,'bg-[#bc4717]') and contains(@class,'text-white')])[1]")));
-                jsClick(popup);
-                log.info("✅ Dismissed submit popup (CSS)");
-            } catch (Exception e1) {
-                try {
-                    WebElement popup = new WebDriverWait(driver, Duration.ofSeconds(3)).until(
-                            ExpectedConditions.elementToBeClickable(
-                                    By.xpath("//button[@id='btnAdditionalDetails']")));
-                    jsClick(popup);
-                    log.info("✅ Dismissed submit popup (additionalDetails)");
-                } catch (Exception e2) {
-                    // Try closing X button on any modal
-                    try {
-                        WebElement closeBtn = driver.findElement(
-                                By.xpath("//button[@class='close'] | //span[text()='×']/parent::button"));
-                        jsClick(closeBtn);
-                        log.info("✅ Closed popup via X button");
-                    } catch (Exception e3) {
-                        log.info("No submit popup present — continuing");
-                    }
-                }
-            }
-        }
+            return;
+        } catch (Exception ignored) {}
 
-        // Handle any browser alert
-        safeSleep(1000);
         try {
-            driver.switchTo().alert().accept();
-        } catch (Exception e) {
-            // No alert
+            // Approach 2: Click X/close button on the modal
+            WebElement closeBtn = driver.findElement(
+                    By.xpath("//button[@class='close' or @aria-label='Close']"
+                            + " | //span[text()='×']/parent::*"
+                            + " | //i[@class='fa fa-times']/parent::*"));
+            jsClick(closeBtn);
+            log.info("✅ Dismissed popup (X button)");
+            safeSleep(1000);
+            return;
+        } catch (Exception ignored) {}
+
+        try {
+            // Approach 3: Click outside the modal to dismiss
+            ((JavascriptExecutor) driver).executeScript(
+                    "var modal = document.querySelector('.modal.show, .modal[style*=\"display: block\"]');" +
+                    "if(modal) { $(modal).modal('hide'); }");
+            log.info("✅ Dismissed popup (modal hide)");
+            safeSleep(1000);
+            return;
+        } catch (Exception ignored) {}
+
+        try {
+            // Approach 4: Press Escape key
+            driver.findElement(By.tagName("body")).sendKeys(org.openqa.selenium.Keys.ESCAPE);
+            log.info("✅ Dismissed popup (Escape key)");
+            safeSleep(1000);
+        } catch (Exception ignored) {
+            log.info("No popup present — continuing");
         }
     }
 
@@ -269,7 +278,8 @@ public class VOLoginPage extends BasePage {
      */
     private String pickRandomEmailFromExcel() {
         String env = config.getEnv();
-        String fileName = "VO_" + env + ".xlsx";
+        String prefix = System.getProperty("voExcelPrefix", "VO");
+        String fileName = prefix + "_" + env + ".xlsx";
         String path = System.getProperty("user.dir") + File.separator
                 + "resources" + File.separator + fileName;
 
