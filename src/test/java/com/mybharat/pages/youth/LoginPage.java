@@ -375,17 +375,17 @@ public class LoginPage extends BasePage {
 
     /**
      * Read the last entry (most recent registration) from environment-specific Excel.
-     * Uses UserDetails_beta.xlsx or UserDetails_prod.xlsx based on -Denv property.
+     * Uses Youth_beta.xlsx or Youth_prod.xlsx based on -Denv property.
      * Sheet: "UserData", Column 0 = email.
      */
     private String readLastEmailFromExcel() {
         String env = System.getProperty("env", "beta");
         String filePath = System.getProperty("user.dir") + File.separator
-                + "resources" + File.separator + "UserDetails_" + env + ".xlsx";
+                + "resources" + File.separator + "Youth_" + env + ".xlsx";
 
         File file = new File(filePath);
         if (!file.exists()) {
-            throw new RuntimeException("UserDetails_" + env + ".xlsx not found at: " + filePath
+            throw new RuntimeException("Youth_" + env + ".xlsx not found at: " + filePath
                     + ". Please run registration on " + env + " first.");
         }
 
@@ -439,7 +439,7 @@ public class LoginPage extends BasePage {
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to read UserDetails_" + env + ".xlsx: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to read Youth_" + env + ".xlsx: " + e.getMessage(), e);
         }
     }
 
