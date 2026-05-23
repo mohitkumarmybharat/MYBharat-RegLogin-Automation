@@ -33,6 +33,8 @@ public class VOLoginTest extends BaseTest {
 
     @BeforeClass(alwaysRun = true)
     public void initPages() {
+        // Use Partner_<env>.xlsx instead of VO_<env>.xlsx for org login
+        System.setProperty("voExcelPrefix", "Partner");
         voLoginPage = new VOLoginPage(driver);
     }
 

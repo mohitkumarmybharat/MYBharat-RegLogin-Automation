@@ -24,8 +24,8 @@ public class VOOrgLoginAgainTest extends BaseTest {
 
     @BeforeClass(alwaysRun = true)
     public void initPages() {
-        // Reset prefix to VO (org user)
-        System.setProperty("voExcelPrefix", "VO");
+        // Reset prefix to Partner (org user)
+        System.setProperty("voExcelPrefix", "Partner");
 
         // Clear cookies to ensure clean state
         try {

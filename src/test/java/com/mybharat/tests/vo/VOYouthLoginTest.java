@@ -28,8 +28,8 @@ public class VOYouthLoginTest extends BaseTest {
 
     @BeforeClass(alwaysRun = true)
     public void initPages() {
-        // Set prefix to VO_Youth so VOLoginPage reads from VO_Youth_<env>.xlsx
-        System.setProperty("voExcelPrefix", "VO_Youth");
+        // Set prefix to Youth so VOLoginPage reads from Youth_<env>.xlsx
+        System.setProperty("voExcelPrefix", "Youth");
 
         // Clear cookies and refresh to ensure fully logged out state
         try {
