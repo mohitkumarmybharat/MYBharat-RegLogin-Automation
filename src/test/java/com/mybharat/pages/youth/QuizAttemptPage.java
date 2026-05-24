@@ -125,15 +125,30 @@ public class QuizAttemptPage extends BasePage {
             java.nio.file.Files.writeString(quizFile.toPath(), quizName);
         } catch (Exception e) { /* ignore */ }
 
-        // Click second "START QUIZ" button (if present)
+        // Click second "START QUIZ" button in the modal (quiz instructions modal)
+        // From screenshot: this is an orange text link/button inside the modal
         try {
-            WebElement startQuiz2 = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
-                    ExpectedConditions.elementToBeClickable(By.xpath("//button[normalize-space()='START QUIZ']")));
+            WebElement startQuiz2 = new WebDriverWait(driver, Duration.ofSeconds(15)).until(
+                    ExpectedConditions.elementToBeClickable(By.xpath(
+                            "//button[normalize-space()='START QUIZ'] | " +
+                            "//a[normalize-space()='START QUIZ'] | " +
+                            "//span[normalize-space()='START QUIZ'] | " +
+                            "//*[normalize-space()='START QUIZ' and (self::button or self::a or self::span or self::div)]")));
             scrollToElement(startQuiz2);
             Thread.sleep(500);
             jsClick(startQuiz2);
+            System.out.println("Clicked modal START QUIZ button");
         } catch (Exception e) {
-            // Second start quiz button not present — continue
+            // Try case-insensitive and partial match
+            try {
+                WebElement startQuiz2 = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                        ExpectedConditions.elementToBeClickable(By.xpath(
+                                "//*[contains(translate(normalize-space(),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ'),'START QUIZ')]")));
+                jsClick(startQuiz2);
+                System.out.println("Clicked modal START QUIZ (fallback)");
+            } catch (Exception e2) {
+                System.out.println("Modal START QUIZ button not found — may not be required for this quiz");
+            }
         }
 
         // Wait for page to stabilize after quiz start
@@ -215,10 +230,30 @@ public class QuizAttemptPage extends BasePage {
         // Select language
         selectQuizLanguage();
 
-        // Click Start Quiz button
-        WebElement startBtn = longWait.until(
-                ExpectedConditions.elementToBeClickable(By.xpath("//button[@id='startQuizButton']")));
-        jsClick(startBtn);
+        // Click Start Quiz button — try multiple locators
+        try {
+            WebElement startBtn = new WebDriverWait(driver, Duration.ofSeconds(15)).until(
+                    ExpectedConditions.elementToBeClickable(By.xpath(
+                            "//button[@id='startQuizButton'] | " +
+                            "//button[contains(text(),'Start Quiz')] | " +
+                            "//button[contains(text(),'START QUIZ')] | " +
+                            "//a[contains(text(),'Start Quiz')]")));
+            jsClick(startBtn);
+        } catch (Exception e) {
+            // Quiz may have auto-started after language selection or details form
+            System.out.println("startQuizButton not found — quiz may have auto-started: " + e.getMessage());
+            // Verify we're on the quiz questions page
+            try {
+                new WebDriverWait(driver, Duration.ofSeconds(10)).until(
+                        ExpectedConditions.presenceOfElementLocated(By.xpath(
+                                "//div[contains(@class,'form-check')]//label | " +
+                                "//div[contains(@class,'option')]//label | " +
+                                "//button[@id='save_button']")));
+                System.out.println("Quiz questions page detected — continuing");
+            } catch (Exception e2) {
+                throw new RuntimeException("Could not start quiz — neither startQuizButton nor questions found", e2);
+            }
+        }
     }
 
     /**
@@ -282,12 +317,15 @@ public class QuizAttemptPage extends BasePage {
 
     private void selectQuizLanguage() {
         try {
-            waitForClickable(languageDropdown);
-            Select langSelect = new Select(languageDropdown);
+            // Try with fresh locator (more reliable after page transitions)
+            WebElement langDrop = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
+                    ExpectedConditions.elementToBeClickable(By.xpath("//select[@id='quizLanguage']")));
+            Select langSelect = new Select(langDrop);
             langSelect.selectByVisibleText(language);
             System.out.println("Selected language: " + language);
         } catch (Exception e) {
-            System.out.println("Language selection failed, continuing with default: " + e.getMessage());
+            // Language dropdown may not exist for single-language quizzes
+            System.out.println("Language selection skipped (not available or single-language quiz): " + e.getMessage());
         }
     }
 
