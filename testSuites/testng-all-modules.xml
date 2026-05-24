@@ -2,107 +2,50 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 
 <!--
-  ALL MODULES - Runs all modules SEQUENTIALLY on the SAME browser.
+  ALL MODULES - Runs Public Pages in PARALLEL with the main user flow.
   
-  Flow: Public Page → Registration → Logout → Login → Profile → Certificate → Basic Info → Quiz
+  Thread 1: Public Pages (independent, own browser)
+  Thread 2: Registration → Logout → Login → Profile → Certificate → Basic Info → Quiz → Quiz Certificate
+  
+  Both threads run simultaneously, reducing total execution time.
+  Report and email content display all results together as before.
   
   Run with:
     mvn test "-Denv=prod" "-Dbrowser=chrome" "-Dsurefire.suiteXmlFiles=testSuites/testng-all-modules.xml"
 -->
-<suite name="MYBharat All Modules" parallel="false" verbose="1">
+<suite name="MYBharat All Modules" parallel="tests" thread-count="2" verbose="1">
 
     <listeners>
         <listener class-name="com.mybharat.listeners.TestListeners"/>
     </listeners>
 
-    <!-- Step 1: Public Page - Header + Organization + Footer -->
+    <!-- PARALLEL THREAD 1: Public Page validation (independent, own browser) -->
     <test name="Public Page">
         <classes>
             <class name="com.mybharat.tests.youth.PublicPageTest"/>
         </classes>
     </test>
 
-    <!-- Step 2: Registration → Submit popup → Save email to Excel -->
-    <test name="Youth Registration">
+    <!-- PARALLEL THREAD 2: Sequential user flow (shared browser session) -->
+    <test name="Youth Flow">
         <classes>
+            <!-- Step 1: Registration -->
             <class name="com.mybharat.tests.youth.RegistrationTest"/>
-        </classes>
-    </test>
-
-    <!-- Step 3: Logout after registration -->
-    <test name="Logout After Registration">
-        <classes>
+            <!-- Step 2: Logout -->
             <class name="com.mybharat.tests.youth.LogoutTest"/>
-        </classes>
-    </test>
-
-    <!-- Step 4: Login with email from Excel (OTP based) -->
-    <test name="Youth Login">
-        <classes>
+            <!-- Step 3: Login -->
             <class name="com.mybharat.tests.youth.LoginTest"/>
-        </classes>
-    </test>
-
-    <!-- Step 5: Complete Youth Profile -->
-    <test name="Youth Profile Completion">
-        <classes>
+            <!-- Step 4: Profile -->
             <class name="com.mybharat.tests.youth.YouthProfileTest"/>
-        </classes>
-    </test>
-
-    <!-- Step 6: Registration Certificate Verification -->
-    <test name="Registration Certificate Verification">
-        <classes>
+            <!-- Step 5: Registration Certificate -->
             <class name="com.mybharat.tests.youth.RegistrationCertificateVerificationTest"/>
-        </classes>
-    </test>
-
-    <!-- Step 7: Basic Info + Extract Email -->
-    <test name="Youth Basic Info">
-        <classes>
+            <!-- Step 6: Basic Info -->
             <class name="com.mybharat.tests.youth.BasicInfoTest"/>
-        </classes>
-    </test>
-
-    <!-- Step 8: Quiz Attempt -->
-    <test name="Quiz Attempt">
-        <classes>
+            <!-- Step 7: Quiz -->
             <class name="com.mybharat.tests.youth.QuizAttemptTest"/>
-        </classes>
-    </test>
-
-    <!-- Step 9: Quiz Certificate Download -->
-    <test name="Quiz Certificate Verification">
-        <classes>
+            <!-- Step 8: Quiz Certificate -->
             <class name="com.mybharat.tests.youth.QuizCertificateVerificationTest"/>
         </classes>
     </test>
-
-    <!-- Module 10: CV Builder (TODO) -->
-    <!--
-    <test name="CV Builder">
-        <classes>
-            <class name="com.mybharat.tests.cvbuilder.CVBuilderTest"/>
-        </classes>
-    </test>
-    -->
-
-    <!-- Module 11: Organisation Creation (TODO) -->
-    <!--
-    <test name="Organisation Creation">
-        <classes>
-            <class name="com.mybharat.tests.organisation.OrgCreationTest"/>
-        </classes>
-    </test>
-    -->
-
-    <!-- Module 12: Join Organisation (TODO) -->
-    <!--
-    <test name="Join Organisation">
-        <classes>
-            <class name="com.mybharat.tests.organisation.JoinOrgTest"/>
-        </classes>
-    </test>
-    -->
 
 </suite>

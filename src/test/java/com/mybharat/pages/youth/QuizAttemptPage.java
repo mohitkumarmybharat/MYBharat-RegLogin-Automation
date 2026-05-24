@@ -105,7 +105,7 @@ public class QuizAttemptPage extends BasePage {
             System.out.println("Could not extract quiz name from card, using default");
         }
 
-        // Click Start Quiz — try multiple locators
+        // Click Start Quiz on the card — opens the quiz instructions modal
         WebElement startQuiz = null;
         try {
             startQuiz = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
@@ -125,25 +125,28 @@ public class QuizAttemptPage extends BasePage {
             java.nio.file.Files.writeString(quizFile.toPath(), quizName);
         } catch (Exception e) { /* ignore */ }
 
-        // Click second "START QUIZ" button in the modal (quiz instructions modal)
-        // From screenshot: this is an orange text link/button inside the modal
+        // Wait for the quiz instructions modal to appear
+        Thread.sleep(2000);
+
+        // Click "START QUIZ" inside the instructions modal
+        // This is different from the card button — it's uppercase and inside the modal
         try {
             WebElement startQuiz2 = new WebDriverWait(driver, Duration.ofSeconds(15)).until(
                     ExpectedConditions.elementToBeClickable(By.xpath(
-                            "//button[normalize-space()='START QUIZ'] | " +
-                            "//a[normalize-space()='START QUIZ'] | " +
-                            "//span[normalize-space()='START QUIZ'] | " +
-                            "//*[normalize-space()='START QUIZ' and (self::button or self::a or self::span or self::div)]")));
+                            "//*[normalize-space()='START QUIZ' and not(normalize-space()='Start Quiz')]" +
+                            "[self::button or self::a or self::span or self::div or self::p]")));
             scrollToElement(startQuiz2);
             Thread.sleep(500);
             jsClick(startQuiz2);
             System.out.println("Clicked modal START QUIZ button");
         } catch (Exception e) {
-            // Try case-insensitive and partial match
+            // Fallback: try any clickable element with START QUIZ text (case-insensitive)
             try {
                 WebElement startQuiz2 = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
                         ExpectedConditions.elementToBeClickable(By.xpath(
-                                "//*[contains(translate(normalize-space(),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ'),'START QUIZ')]")));
+                                "//a[contains(translate(normalize-space(),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ'),'START QUIZ')] | " +
+                                "//span[contains(translate(normalize-space(),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ'),'START QUIZ')] | " +
+                                "//p[contains(translate(normalize-space(),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ'),'START QUIZ')]")));
                 jsClick(startQuiz2);
                 System.out.println("Clicked modal START QUIZ (fallback)");
             } catch (Exception e2) {
