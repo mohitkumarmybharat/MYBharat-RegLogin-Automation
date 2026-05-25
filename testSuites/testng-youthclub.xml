@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+  Youth Club Module — Create Organization only (no registration)
+  
+  Login with last user from Youth_prod.xlsx → Create Youth Club Organization
+  
+  Run:
+    mvn test -Denv=prod -Dbrowser=chrome -Dsurefire.suiteXmlFiles=testSuites/testng-youthclub.xml
+-->
+<suite name="Youth Club Module" parallel="false" verbose="1">
+
+    <listeners>
+        <listener class-name="com.mybharat.listeners.TestListeners"/>
+    </listeners>
+
+    <test name="Create Youth Club Organization">
+        <classes>
+            <class name="com.mybharat.tests.org.CreateYouthClubTest"/>
+        </classes>
+    </test>
+
+</suite>
