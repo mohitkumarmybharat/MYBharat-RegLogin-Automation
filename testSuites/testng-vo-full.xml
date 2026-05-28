@@ -90,7 +90,14 @@
         </classes>
     </test>
 
-    <!-- Step 10: Navigate to Events → Edit Event → Save as Draft → Logout -->
+    <!-- Step 10: Navigate to Events → Click 1st card → Images by Youth → Reject 1st → Approve 2nd -->
+    <test name="Image Approval">
+        <classes>
+            <class name="com.mybharat.tests.vo.VOImageApprovalTest"/>
+        </classes>
+    </test>
+
+    <!-- Step 11: Scroll up → Edit Event → Save as Draft → Logout -->
     <test name="Edit Event Save as Draft">
         <classes>
             <class name="com.mybharat.tests.vo.VOEventEditTest"/>

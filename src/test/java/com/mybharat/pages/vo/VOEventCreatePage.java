@@ -54,6 +54,32 @@ public class VOEventCreatePage extends BasePage {
 
     private String eventName;
 
+    // Fixed event name prefix — only city changes randomly
+    private static final String EVENT_PREFIX = "Swachhta Hi Seva";
+
+    // Indian city names
+    private static final String[] CITIES = {
+            "Ghaziabad", "Lucknow", "Varanasi", "Jaipur", "Bhopal", "Indore",
+            "Patna", "Ranchi", "Dehradun", "Chandigarh", "Agra", "Kanpur",
+            "Prayagraj", "Meerut", "Noida", "Gurugram", "Faridabad", "Jodhpur",
+            "Udaipur", "Kota", "Nagpur", "Pune", "Nashik", "Surat", "Ahmedabad"
+    };
+
+    // Realistic Indian names for organizer
+    private static final String[] ORGANIZER_NAMES = {
+            "Rajesh Kumar Sharma", "Priya Singh", "Amit Verma", "Sunita Devi",
+            "Vikram Chauhan", "Neha Gupta", "Arun Patel", "Kavita Mishra",
+            "Deepak Yadav", "Anjali Tiwari", "Rohit Saxena", "Pooja Agarwal"
+    };
+
+    // Realistic addresses
+    private static final String[] ADDRESSES = {
+            "Near Gandhi Maidan, Civil Lines", "Sector 15, Institutional Area",
+            "Rajendra Nagar, Main Road", "Nehru Park, Station Road",
+            "Subhash Chowk, MG Road", "Ambedkar Bhawan, University Road",
+            "Patel Nagar, Ring Road", "Shastri Nagar, GT Road"
+    };
+
     public VOEventCreatePage(WebDriver driver) {
         super(driver);
     }
@@ -90,7 +116,8 @@ public class VOEventCreatePage extends BasePage {
      */
     private void fillEventTitle() throws InterruptedException {
         log.info("Filling Event Title...");
-        String title = "VO Automation Event " + System.currentTimeMillis() % 100000;
+        String city = CITIES[random.nextInt(CITIES.length)];
+        String title = EVENT_PREFIX + " " + city;
         try {
             WebElement titleInput = driver.findElement(
                     By.xpath("//input[@id='editableText' or @placeholder='Event Title*' or @name='event_name']"));
@@ -110,7 +137,14 @@ public class VOEventCreatePage extends BasePage {
      */
     private void fillDescription() throws InterruptedException {
         log.info("Filling Description...");
-        String desc = "Automation test - Community outreach volunteer opportunity for youth engagement.";
+        String[] descriptions = {
+                "This volunteer opportunity brings together young citizens to participate in community welfare activities including cleanliness drives, tree plantation, and public health awareness campaigns across the district.",
+                "A collaborative initiative under the Volunteer for Bharat program aimed at empowering local communities through skill-building workshops, environmental conservation, and youth mentorship programs.",
+                "Join hands with fellow volunteers to make a positive impact in your neighbourhood through education outreach, digital literacy sessions, and sustainable development activities.",
+                "This event is designed to foster civic responsibility among youth through hands-on participation in social welfare programs, cultural exchange, and community development initiatives.",
+                "An impactful initiative to engage young volunteers in nation-building activities including health camps, environmental awareness drives, and skill enhancement workshops for underprivileged communities."
+        };
+        String desc = descriptions[random.nextInt(descriptions.length)];
         try {
             ((JavascriptExecutor) driver).executeScript(
                     "$('#description').trumbowyg('html', arguments[0]);", desc);
@@ -417,7 +451,8 @@ public class VOEventCreatePage extends BasePage {
         scrollPage(300);
         Thread.sleep(300);
 
-        eventName = "VO Automation Event " + System.currentTimeMillis() % 100000;
+        String city = CITIES[random.nextInt(CITIES.length)];
+        eventName = EVENT_PREFIX + " " + city;
 
         try {
             WebElement partnerInput = driver.findElement(By.id("partner_name"));
@@ -445,7 +480,7 @@ public class VOEventCreatePage extends BasePage {
                     By.xpath("//input[contains(@placeholder,'Enter Address') or contains(@name,'address')]"));
             scrollToElement(addressInput);
             addressInput.clear();
-            addressInput.sendKeys("123 Test Street, Automation Nagar");
+            addressInput.sendKeys(ADDRESSES[random.nextInt(ADDRESSES.length)]);
             log.info("✅ Address filled");
         } catch (Exception e) {
             log.warn("Address not found: {}", e.getMessage());
@@ -513,7 +548,7 @@ public class VOEventCreatePage extends BasePage {
                     By.xpath("//input[@name='organizerDetails[organizer_name][]']"));
             scrollToElement(nameInput);
             nameInput.clear();
-            nameInput.sendKeys("Automation Organizer");
+            nameInput.sendKeys(ORGANIZER_NAMES[random.nextInt(ORGANIZER_NAMES.length)]);
             log.info("✅ Organizer Name filled");
         } catch (Exception e) {
             log.warn("Organizer Name not found: {}", e.getMessage());
@@ -547,7 +582,9 @@ public class VOEventCreatePage extends BasePage {
                     By.xpath("//input[@name='organizerDetails[organizer_email][]']"));
             scrollToElement(emailInput);
             emailInput.clear();
-            emailInput.sendKeys("automation.organizer@yopmail.com");
+            String[] emailPrefixes = {"rajesh.sharma", "priya.singh", "amit.verma", "sunita.devi",
+                    "vikram.chauhan", "neha.gupta", "arun.patel", "kavita.mishra"};
+            emailInput.sendKeys(emailPrefixes[random.nextInt(emailPrefixes.length)] + "@yopmail.com");
             log.info("✅ Email filled");
         } catch (Exception e) {
             log.warn("Email not found: {}", e.getMessage());

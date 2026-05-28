@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Random;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -39,6 +40,18 @@ import com.mybharat.pages.BasePage;
 public class VOCreatePage extends BasePage {
 
     private static final Logger log = LogManager.getLogger(VOCreatePage.class);
+    private final Random random = new Random();
+
+    // Fixed event name prefix — only city changes randomly
+    private static final String EVENT_PREFIX = "Swachhta Hi Seva";
+
+    // Indian city names for uniqueness
+    private static final String[] CITIES = {
+            "Ghaziabad", "Lucknow", "Varanasi", "Jaipur", "Bhopal", "Indore",
+            "Patna", "Ranchi", "Dehradun", "Chandigarh", "Agra", "Kanpur",
+            "Prayagraj", "Meerut", "Noida", "Gurugram", "Faridabad", "Jodhpur",
+            "Udaipur", "Kota", "Nagpur", "Pune", "Nashik", "Surat", "Ahmedabad"
+    };
 
     public VOCreatePage(WebDriver driver) {
         super(driver);
@@ -113,7 +126,8 @@ public class VOCreatePage extends BasePage {
      */
     private void fillTemplateName() throws InterruptedException {
         log.info("Filling Template Name...");
-        String uniqueName = "VO Automation Template " + System.currentTimeMillis() % 100000;
+        String city = CITIES[random.nextInt(CITIES.length)];
+        String uniqueName = EVENT_PREFIX + " " + city;
 
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
         WebElement nameInput = wait.until(ExpectedConditions.visibilityOfElementLocated(
@@ -266,13 +280,20 @@ public class VOCreatePage extends BasePage {
      */
     private void fillDescription() throws InterruptedException {
         log.info("Filling Event Description...");
+        String[] descriptions = {
+                "This volunteer opportunity aims to engage youth in community service activities including cleanliness drives, tree plantation, and awareness campaigns for sustainable development.",
+                "Join us for a meaningful initiative to empower local communities through skill-building workshops, health awareness sessions, and environmental conservation activities.",
+                "A collaborative effort to bring together young volunteers for social impact through education outreach, digital literacy programs, and neighbourhood beautification drives.",
+                "This event focuses on building civic responsibility among youth through hands-on participation in public welfare activities, mentorship programs, and cultural exchange.",
+                "An initiative under the Volunteer for Bharat program to promote community engagement, environmental sustainability, and holistic development of young citizens."
+        };
         try {
             WebElement descTextarea = driver.findElement(
                     By.xpath("//textarea[contains(@name,'description') or @id='exampleTextarea' or @name='category_description']"
                             + " | //label[contains(text(),'Event Description')]/following::textarea[1]"));
             scrollToElement(descTextarea);
             descTextarea.clear();
-            descTextarea.sendKeys("Automation test - Volunteer opportunity for community outreach and youth engagement activities.");
+            descTextarea.sendKeys(descriptions[random.nextInt(descriptions.length)]);
             log.info("✅ Description filled");
 
             // Click toggle next to description
@@ -319,13 +340,26 @@ public class VOCreatePage extends BasePage {
         scrollPage(400);
         Thread.sleep(500);
 
+        String[] themes = {
+                "Swachh Bharat Seva", "Youth Empowerment", "Green India Campaign",
+                "Digital India Outreach", "Health and Wellness", "Community Development"
+        };
+        String[] activities1 = {
+                "Cleanliness Drive", "Tree Plantation", "Health Check-up Camp",
+                "Digital Literacy Workshop", "Blood Donation Camp", "Awareness Rally"
+        };
+        String[] activities2 = {
+                "Wall Painting", "Street Play", "Yoga Session",
+                "Essay Competition", "Poster Making", "Cultural Program"
+        };
+
         // Theme
         try {
             WebElement themeInput = driver.findElement(
                     By.xpath("//input[@placeholder='Enter Theme' or @name='theme' or contains(@placeholder,'Theme')]"));
             scrollToElement(themeInput);
             themeInput.clear();
-            themeInput.sendKeys("Community Service Drive");
+            themeInput.sendKeys(themes[random.nextInt(themes.length)]);
             log.info("✅ Theme filled");
         } catch (Exception e) {
             log.warn("Theme input not found: {}", e.getMessage());
@@ -339,7 +373,7 @@ public class VOCreatePage extends BasePage {
                             + " | (//input[contains(@name,'activity')])[1]"));
             scrollToElement(activity1);
             activity1.clear();
-            activity1.sendKeys("Awareness Campaign");
+            activity1.sendKeys(activities1[random.nextInt(activities1.length)]);
             log.info("✅ Activity 1 filled");
         } catch (Exception e) {
             log.warn("Activity 1 not found: {}", e.getMessage());
@@ -351,7 +385,7 @@ public class VOCreatePage extends BasePage {
             WebElement activity2 = driver.findElement(
                     By.xpath("(//input[@placeholder='Enter Name'])[2]"));
             activity2.clear();
-            activity2.sendKeys("Tree Plantation");
+            activity2.sendKeys(activities2[random.nextInt(activities2.length)]);
             log.info("✅ Activity 2 filled");
         } catch (Exception e) {
             // optional — skip

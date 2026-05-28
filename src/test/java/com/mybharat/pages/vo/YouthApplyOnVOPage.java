@@ -47,8 +47,8 @@ public class YouthApplyOnVOPage extends BasePage {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
         dismissOverlay();
 
-        // Use "VO Automation Event" as search keyword (card titles get truncated)
-        String searchKeyword = "VO Automation Event";
+        // Search by "Swachhta Hi Seva" — realistic event name
+        String searchKeyword = "Swachhta Hi Seva";
 
         // Select "All" in Country dropdown
         try {
@@ -98,8 +98,8 @@ public class YouthApplyOnVOPage extends BasePage {
         dismissOverlay();
         Thread.sleep(2000);
 
-        // Use "vo automation event" as the match text
-        String shortName = "vo automation event";
+        // Match "swachhta hi seva" in card text
+        String shortName = "swachhta hi seva";
         log.info("Searching for card text containing: '{}'", shortName);
 
         // Find all matching event cards
@@ -127,7 +127,7 @@ public class YouthApplyOnVOPage extends BasePage {
 
         log.info("Found {} event card(s)", eventCards.size());
 
-        // Try each card — if loader doesn't stop, try the next one
+        // Click first card; if it doesn't open, try the next one
         for (int i = 0; i < eventCards.size() && i < 3; i++) {
             WebElement card = eventCards.get(i);
             String href = card.getAttribute("href");

@@ -28,6 +28,50 @@ public class VOEventEditPage extends BasePage {
     }
 
     /**
+     * Scroll to top of the page.
+     */
+    public void scrollToTop() throws InterruptedException {
+        log.info("Scrolling to top of page...");
+        ((JavascriptExecutor) driver).executeScript("window.scrollTo(0, 0);");
+        Thread.sleep(1500);
+        log.info("✅ Scrolled to top");
+    }
+
+    /**
+     * Click the "Edit" button on the current event detail page.
+     * This is the Edit button visible on the event detail page (not the events list).
+     */
+    public void clickEditButton() throws InterruptedException {
+        log.info("Clicking Edit button on event detail page...");
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+        dismissOverlay();
+
+        try {
+            WebElement editBtn = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("(//a[normalize-space()='Edit' or normalize-space()='Edit Event']"
+                            + " | //button[normalize-space()='Edit' or normalize-space()='Edit Event'])[1]")));
+            scrollToElement(editBtn);
+            Thread.sleep(300);
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", editBtn);
+            log.info("✅ Clicked Edit button");
+        } catch (Exception e) {
+            log.warn("Edit button not found via XPath, trying JS...");
+            ((JavascriptExecutor) driver).executeScript(
+                    "var btns = document.querySelectorAll('a, button');" +
+                    "for(var i=0; i<btns.length; i++) {" +
+                    "  var txt = btns[i].textContent.trim();" +
+                    "  if(txt === 'Edit' || txt === 'Edit Event') { btns[i].click(); break; }" +
+                    "}");
+            log.info("✅ Clicked Edit button (JS fallback)");
+        }
+
+        Thread.sleep(5000);
+        waitForPageLoad();
+        dismissOverlay();
+        log.info("✅ On Edit Event page. URL: {}", driver.getCurrentUrl());
+    }
+
+    /**
      * Navigate to Events page through org dashboard.
      * Flow: Profile page (after login) → Scroll down → View More → Click org name → Events sidebar
      */

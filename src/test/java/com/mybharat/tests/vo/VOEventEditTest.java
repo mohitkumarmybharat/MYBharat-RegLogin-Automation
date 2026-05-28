@@ -30,9 +30,16 @@ public class VOEventEditTest extends BaseTest {
     public void editEventAndSaveAsDraft() throws Exception {
         log.info("=== Starting: Edit Event and Save as Draft ===");
 
-        editPage.navigateToEventsPage();
-        editPage.clickEditEventOnLatestCard();
+        // Scroll up to top of page (after image approval we're scrolled down)
+        editPage.scrollToTop();
+
+        // Click Edit button on the current event page
+        editPage.clickEditButton();
+
+        // Scroll down and click Save as Draft
         editPage.clickSaveAsDraft();
+
+        // Logout
         editPage.clickLogoAndLogout();
 
         log.info("=== ✅ Edit Event → Save as Draft → Logout PASSED ===");
