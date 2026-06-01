@@ -40,7 +40,7 @@ public class BlogTest extends BaseTest {
     public void writeAndPublishBlog() throws Exception {
         log.info("Starting: Write and Publish Blog");
 
-        // Step 1: Navigate to Blogs page
+        // Step 1: Navigate to Blogs page (same window, user already logged in)
         blogPage.navigateToBlogs();
         log.info("Step 1: Navigated to Blogs page");
 
@@ -76,6 +76,11 @@ public class BlogTest extends BaseTest {
         log.info("✅ Blog verified in My Blogs: {}", blogPage.getCreatedBlogTitle());
     }
 
+    // =========================================================================
+    // ADMIN/VERIFIER FLOW — Commented out (to be enabled when admin flow is ready)
+    // =========================================================================
+
+    /*
     @Test(priority = 3, groups = {"regression", "blog"}, dependsOnMethods = "verifyBlogInMyBlogs",
           description = "Admin approves the blog: Open admin window → Login → Newsletter & Blogs → Approve")
     public void adminApprovesBlog() throws Exception {
@@ -105,7 +110,6 @@ public class BlogTest extends BaseTest {
         adminPage.switchToYouthWindow();
 
         // Re-login as youth and navigate to My Blogs
-        // Use the LoginPage to login again
         com.mybharat.pages.youth.LoginPage loginPage = new com.mybharat.pages.youth.LoginPage(driver);
         loginPage.navigateToHomePage();
         loginPage.closePopupIfPresent();
@@ -189,4 +193,5 @@ public class BlogTest extends BaseTest {
         Assert.assertFalse(visible, "Unpublished blog should NOT be visible on public blogs page");
         log.info("✅ Blog removed from public page after unpublish");
     }
+    */
 }

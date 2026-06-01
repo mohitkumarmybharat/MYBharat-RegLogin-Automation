@@ -4,27 +4,25 @@
 <!--
   Blog Module Test Suite
   
-  Flow: Login (with existing user from Excel) → Write and Publish Blog
+  Flow: Login (last email from Youth_beta/Youth_prod) → Submit popup → Navigate to Blogs → Write Blog
+  
+  All steps run on the SAME browser session (single <test> block).
   
   Run with:
-    mvn test -Denv=prod -Dbrowser=chrome -Dsurefire.suiteXmlFiles=testSuites/testng-blog.xml
+    mvn test -Denv=beta -Dbrowser=chrome -Dsurefire.suiteXmlFiles=testSuites/testng-blog.xml -DcloseBrowser=false
+    mvn test -Denv=prod -Dbrowser=chrome -Dsurefire.suiteXmlFiles=testSuites/testng-blog.xml -DcloseBrowser=false
 -->
-<suite name="Blog Module Suite" parallel="false" verbose="1">
+<suite name="Blog Module Suite" parallel="none" verbose="1" preserve-order="true">
 
     <listeners>
         <listener class-name="com.mybharat.listeners.TestListeners"/>
     </listeners>
 
-    <!-- Step 1: Login -->
-    <test name="Youth Login">
+    <test name="Blog Flow" preserve-order="true">
         <classes>
+            <!-- Step 1: Login with last email from Youth_beta/Youth_prod Excel -->
             <class name="com.mybharat.tests.youth.LoginTest"/>
-        </classes>
-    </test>
-
-    <!-- Step 2: Blog Creation -->
-    <test name="Blog Creation">
-        <classes>
+            <!-- Step 2: Blog Creation (submit popup + navigate to blogs + write) -->
             <class name="com.mybharat.tests.blog.BlogTest"/>
         </classes>
     </test>

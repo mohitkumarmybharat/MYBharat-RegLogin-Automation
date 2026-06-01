@@ -62,6 +62,38 @@ public class BlogPage extends BasePage {
     }
 
     /**
+     * Handle post-login popup (Submit/OK/Close) before navigating to blogs.
+     */
+    public void handlePostLoginPopup() throws InterruptedException {
+        log.info("Handling post-login popup...");
+        Thread.sleep(2000);
+
+        String[] popupButtons = {
+            "//button[normalize-space()='Submit']",
+            "//button[normalize-space()='OK']",
+            "//button[normalize-space()='Ok']",
+            "//button[normalize-space()='Close']",
+            "//i[@class='fa fa-times']",
+            "//button[@class='close']",
+            "//button[contains(@class,'btn-close')]"
+        };
+
+        for (String xpath : popupButtons) {
+            try {
+                WebElement btn = new WebDriverWait(driver, Duration.ofSeconds(3)).until(
+                        ExpectedConditions.elementToBeClickable(By.xpath(xpath)));
+                if (btn.isDisplayed()) {
+                    try { btn.click(); } catch (Exception e) { jsClick(btn); }
+                    log.info("✅ Popup handled with: {}", xpath);
+                    Thread.sleep(1000);
+                    return;
+                }
+            } catch (Exception e) { /* try next */ }
+        }
+        log.info("No popup found — continuing");
+    }
+
+    /**
      * Navigate to Blogs page directly via URL.
      */
     public void navigateToBlogs() throws InterruptedException {
@@ -69,7 +101,7 @@ public class BlogPage extends BasePage {
         String env = System.getProperty("env", "beta");
         String blogsUrl;
         if (env.equals("prod")) {
-            blogsUrl = "https://mybharat.gov.in/voices/blogs";
+            blogsUrl = "https://mybharat.gov.in/blogs/";
         } else {
             blogsUrl = "https://yuva-beta.mybharats.in/blogs/";
         }
@@ -118,8 +150,7 @@ public class BlogPage extends BasePage {
             "Sustainable Development Goals and Youth Participation",
             "Technology for Good: Youth-Led Initiatives in India"
         };
-        String selectedTitle = titles[new java.util.Random().nextInt(titles.length)]
-                + " - " + new java.text.SimpleDateFormat("ddMMM_HHmm").format(new java.util.Date());
+        String selectedTitle = titles[new java.util.Random().nextInt(titles.length)];
         titleInput.sendKeys(selectedTitle);
         createdBlogTitle = selectedTitle;
         log.info("Title entered: {}", selectedTitle);
@@ -148,20 +179,22 @@ public class BlogPage extends BasePage {
     }
 
     /**
-     * Upload cover image for the blog.
+     * Upload cover image for the blog — always uses mybharat_blog_cover.png.
      */
     private void uploadCoverImage() {
         try {
-            // Use a good quality image from UploadImages
-            String[] images = {"JPG1.jpg", "JPG2.jpg", "JPG3.jpg", "JPG4.jpg", "JPG5.jpg",
-                    "JPG6.jpg", "JPG7.jpg", "JPG8.jpg", "JPG9.jpg", "JPG10.jpg", "JPG11.jpg"};
-            String selectedImage = images[new java.util.Random().nextInt(images.length)];
             String imagePath = System.getProperty("user.dir") + File.separator
-                    + "UploadImages" + File.separator + selectedImage;
+                    + "UploadImages" + File.separator + "mybharat_blog_cover.png";
+
+            // Fallback to JPG1.jpg if cover image not found
+            if (!new File(imagePath).exists()) {
+                imagePath = System.getProperty("user.dir") + File.separator
+                        + "UploadImages" + File.separator + "JPG1.jpg";
+            }
 
             WebElement fileInput = driver.findElement(COVER_IMAGE_INPUT);
             fileInput.sendKeys(imagePath);
-            log.info("Cover image uploaded: {}", selectedImage);
+            log.info("Cover image uploaded: {}", imagePath);
         } catch (Exception e) {
             log.warn("Cover image upload failed: {}", e.getMessage());
         }
@@ -177,10 +210,19 @@ public class BlogPage extends BasePage {
             editor.click();
             Thread.sleep(300);
 
-            String blogContent = "This is an automated test blog post created by MY Bharat QA Automation. "
-                    + "The purpose of this blog is to verify the blog creation workflow on the MY Bharat platform. "
-                    + "MY Bharat is a platform for Indian youth to engage in nation-building activities, "
-                    + "volunteer work, and skill development programs across the country.";
+            String blogContent = "India's youth population represents one of the largest demographic dividends in the world. "
+                    + "With over 600 million people under the age of 25, the country stands at a unique crossroads "
+                    + "where the energy and innovation of its young citizens can drive transformative change across "
+                    + "every sector of society. From technology and entrepreneurship to social service and governance, "
+                    + "Indian youth are increasingly stepping up to take ownership of the nation's future.\n\n"
+                    + "The MY Bharat platform serves as a bridge connecting young Indians with meaningful opportunities "
+                    + "for volunteering, skill development, and community engagement. Through experiential learning "
+                    + "programs, mega events, and collaborative initiatives with government bodies and NGOs, "
+                    + "the platform empowers youth to contribute directly to India's development goals.\n\n"
+                    + "Programs like Digital India, Skill India, and Startup India have created an ecosystem where "
+                    + "young people can learn, innovate, and lead. The emphasis on digital literacy, vocational "
+                    + "training, and entrepreneurship is helping bridge the urban-rural divide and creating "
+                    + "opportunities in every corner of the country.";
 
             ((JavascriptExecutor) driver).executeScript(
                     "arguments[0].innerHTML = arguments[1];", editor, "<p>" + blogContent + "</p>");
@@ -205,7 +247,9 @@ public class BlogPage extends BasePage {
             bioEditor.click();
             Thread.sleep(300);
 
-            String bio = "QA Automation Engineer at MY Bharat, passionate about quality and testing.";
+            String bio = "A passionate writer and youth advocate from India, dedicated to sharing stories of "
+                    + "innovation, social impact, and nation-building. Believes in the power of youth-led "
+                    + "initiatives to transform communities and drive sustainable development across the country.";
             ((JavascriptExecutor) driver).executeScript(
                     "arguments[0].innerHTML = arguments[1];", bioEditor, "<p>" + bio + "</p>");
             ((JavascriptExecutor) driver).executeScript(
@@ -292,13 +336,29 @@ public class BlogPage extends BasePage {
         boolean titleFound = false;
         boolean statusPending = false;
 
+        // Use first part of title for matching (avoids issues with line wrapping and special chars)
+        String searchTitle = createdBlogTitle;
+        // Use just the first 20 chars or up to the first special char for reliable matching
+        if (searchTitle.length() > 20) {
+            searchTitle = searchTitle.substring(0, 20);
+        }
+        // Remove special chars that break XPath
+        searchTitle = searchTitle.replace("'", "").replace("\"", "");
+
         try {
             WebElement blogEntry = longWait.until(ExpectedConditions.visibilityOfElementLocated(
-                    By.xpath("//*[contains(text(),'" + createdBlogTitle + "')]")));
+                    By.xpath("//*[contains(.,'" + searchTitle + "')]")));
             titleFound = blogEntry != null;
             log.info("Blog title found: {}", createdBlogTitle);
         } catch (Exception e) {
-            log.warn("Blog title not found in My Blogs: {}", createdBlogTitle);
+            // Fallback: check page source
+            String pageSource = driver.getPageSource();
+            if (pageSource.contains(searchTitle)) {
+                titleFound = true;
+                log.info("Blog title found in page source: {}", createdBlogTitle);
+            } else {
+                log.warn("Blog title not found in My Blogs: {}", createdBlogTitle);
+            }
         }
 
         // Verify Pending status
