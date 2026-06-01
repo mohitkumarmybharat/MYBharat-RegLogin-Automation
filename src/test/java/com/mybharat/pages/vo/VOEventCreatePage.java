@@ -131,7 +131,7 @@ public class VOEventCreatePage extends BasePage {
     private void fillEventTitle() throws InterruptedException {
         log.info("Filling Event Title...");
         String city = CITIES[random.nextInt(CITIES.length)];
-        String title = EVENT_PREFIX + " " + city;
+        String title = city + " " + EVENT_PREFIX;
         try {
             WebElement titleInput = driver.findElement(
                     By.xpath("//input[@id='editableText' or @placeholder='Event Title*' or @name='event_name']"));

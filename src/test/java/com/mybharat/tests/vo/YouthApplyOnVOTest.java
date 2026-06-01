@@ -32,8 +32,8 @@ public class YouthApplyOnVOTest extends BaseTest {
     public void initPages() {
         applyPage = new YouthApplyOnVOPage(driver);
         uploadPage = new YouthUploadImagesPage(driver);
-        eventName = getLastEventNameFromExcel();
-        log.info("Event name from Excel: {}", eventName);
+        eventName = getSecondLastEventNameFromExcel();
+        log.info("Event name from Excel (second-last): {}", eventName);
     }
 
     @Test(priority = 1, groups = {"vo", "youth-upload"})

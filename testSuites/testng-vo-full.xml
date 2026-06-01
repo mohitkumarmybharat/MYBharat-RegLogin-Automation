@@ -5,7 +5,9 @@
   VO Full End-to-End Flow (single browser session):
     1. Org Login → Template → Event → Publish → Logout
     2. Youth Login → Search → Apply → Upload Images → Logout
-    3. Org Login Again → Youth Photo Moderation → Approve/Reject → Events → Edit → Save Draft → Logout
+    3. Org Login Again → Youth Photo Moderation (VO tab) → Search by city → Approve/Reject
+       → Events → Add/Edit Gallery → Upload 5 → Publish → Delete 1 → Back
+       → Edit Event → Save as Draft → Logout
 
   Run:
     mvn test "-Denv=prod" "-Dbrowser=chrome" "-Dsurefire.suiteXmlFiles=testSuites/testng-vo-full.xml"
@@ -30,9 +32,10 @@
             <class name="com.mybharat.tests.vo.YouthApplyOnVOTest"/>
             <class name="com.mybharat.tests.vo.VOYouthLogoutTest"/>
 
-            <!-- ORG SIDE: APPROVE + EDIT + LOGOUT -->
+            <!-- ORG SIDE: APPROVE + GALLERY + EDIT + LOGOUT -->
             <class name="com.mybharat.tests.vo.VOOrgLoginAgainTest"/>
             <class name="com.mybharat.tests.vo.VOImageApprovalTest"/>
+            <class name="com.mybharat.tests.vo.VOEventEditTest"/>
         </classes>
     </test>
 

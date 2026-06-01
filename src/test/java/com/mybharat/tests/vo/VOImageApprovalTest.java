@@ -48,21 +48,43 @@ public class VOImageApprovalTest extends BaseTest {
         // Step 3: Click VO tab
         approvalPage.clickVOTab();
 
+        // Step 3b: Search event by city name (second-last from Excel)
+        String eventName = getSecondLastEventName();
+        if (eventName != null && !eventName.isEmpty()) {
+            String city = eventName.split("\\s+")[0]; // first word = city
+            log.info("Searching moderation by city: {} (from event: {})", city, eventName);
+            approvalPage.searchEventInModeration(city);
+        }
+
         // Step 4: Approve 1st, Reject 2nd
         approvalPage.approveFirstRejectSecond();
 
         // Step 5: Click Events in sidebar
         approvalPage.clickEventsInSidebar();
 
-        // Step 6: Click Edit Event on latest card
-        approvalPage.clickEditEventOnLatestCard();
+        // Step 6: Click "Add/Edit Gallery" on latest card → Upload 5 → Publish → Delete 1 → Back
+        approvalPage.clickAddEditGalleryOnLatestCard();
+        approvalPage.uploadGalleryImagesAndPublish();
 
-        // Step 7: Save as draft
-        approvalPage.clickSaveAsDraft();
+        log.info("=== ✅ Image Approval + Gallery Upload PASSED ===");
+    }
 
-        // Step 8: Logout
-        approvalPage.logout();
-
-        log.info("=== ✅ Image Approval + Edit Event + Logout PASSED ===");
+    private String getSecondLastEventName() {
+        String path = System.getProperty("user.dir") + java.io.File.separator
+                + "resources" + java.io.File.separator + "Event_Name.xlsx";
+        try (java.io.FileInputStream fis = new java.io.FileInputStream(path);
+             org.apache.poi.xssf.usermodel.XSSFWorkbook workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(fis)) {
+            org.apache.poi.ss.usermodel.Sheet sheet = workbook.getSheet("Event_Data");
+            if (sheet == null) sheet = workbook.getSheetAt(0);
+            int lastRow = sheet.getLastRowNum();
+            int targetRow = (lastRow >= 2) ? lastRow - 1 : lastRow;
+            org.apache.poi.ss.usermodel.Row row = sheet.getRow(targetRow);
+            if (row != null && row.getCell(0) != null) {
+                return row.getCell(0).getStringCellValue().trim();
+            }
+        } catch (Exception e) {
+            log.warn("Could not read Event_Name.xlsx: {}", e.getMessage());
+        }
+        return "";
     }
 }

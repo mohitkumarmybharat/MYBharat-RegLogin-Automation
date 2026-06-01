@@ -83,37 +83,78 @@ public class VOCreatePage extends BasePage {
      */
     public void clickCreate() throws InterruptedException {
         log.info("Clicking Create button...");
-        dismissOverlay();
-        scrollPage(500);
-        Thread.sleep(500);
 
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+        // Retry loop: if "Duplicate category name" appears, increment number and retry
+        for (int attempt = 0; attempt < 5; attempt++) {
+            dismissOverlay();
+            scrollPage(500);
+            Thread.sleep(500);
 
-        String[] locators = {
-                "//button[normalize-space()='Create']",
-                "//button[contains(text(),'Create')]",
-                "//input[@type='submit' and @value='Create']",
-                "//button[@type='submit']",
-                "//a[normalize-space()='Create']"
-        };
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
 
-        for (String xpath : locators) {
+            String[] locators = {
+                    "//button[normalize-space()='Create']",
+                    "//button[contains(text(),'Create')]",
+                    "//input[@type='submit' and @value='Create']",
+                    "//button[@type='submit']",
+                    "//a[normalize-space()='Create']"
+            };
+
+            boolean clicked = false;
+            for (String xpath : locators) {
+                try {
+                    WebElement createBtn = wait.until(ExpectedConditions.elementToBeClickable(By.xpath(xpath)));
+                    scrollToElement(createBtn);
+                    Thread.sleep(300);
+                    safeClick(createBtn);
+                    log.info("✅ Clicked Create button ({})", xpath);
+                    clicked = true;
+                    break;
+                } catch (Exception e) {
+                    // try next
+                }
+            }
+
+            if (!clicked) {
+                log.error("Create button not found with any locator");
+                throw new RuntimeException("Create button not found on Add Template form");
+            }
+
+            Thread.sleep(3000);
+            dismissOverlay();
+
+            // Check for "Duplicate category name" validation error
+            boolean isDuplicate = false;
             try {
-                WebElement createBtn = wait.until(ExpectedConditions.elementToBeClickable(By.xpath(xpath)));
-                scrollToElement(createBtn);
-                Thread.sleep(300);
-                safeClick(createBtn);
-                log.info("✅ Clicked Create button ({})", xpath);
-                Thread.sleep(3000);
-                dismissOverlay();
+                List<WebElement> errors = driver.findElements(
+                        By.xpath("//*[contains(text(),'Duplicate category name') or contains(text(),'duplicate category')]"));
+                if (!errors.isEmpty()) {
+                    isDuplicate = true;
+                    log.warn("⚠️ Duplicate category name detected (attempt {}). Incrementing number...", attempt + 1);
+                }
+            } catch (Exception ignored) {}
+
+            if (!isDuplicate) {
+                log.info("✅ Template created successfully (no duplicate error)");
                 return;
+            }
+
+            // Duplicate found — increment number and change the template name
+            int nextNumber = getNextTemplateNumber();
+            String newName = "Swachhta Hi Seva " + nextNumber;
+            try {
+                WebElement nameInput = driver.findElement(
+                        By.xpath("//input[@placeholder='Enter the Event Template Name' or @name='category_name']"));
+                nameInput.clear();
+                nameInput.sendKeys(newName);
+                Thread.sleep(500);
+                log.info("Changed template name to: {}", newName);
             } catch (Exception e) {
-                // try next
+                log.warn("Could not change template name: {}", e.getMessage());
             }
         }
 
-        log.error("Create button not found with any locator");
-        throw new RuntimeException("Create button not found on Add Template form");
+        log.warn("Exhausted 5 attempts for unique template name — proceeding anyway");
     }
 
     // =========================================================================

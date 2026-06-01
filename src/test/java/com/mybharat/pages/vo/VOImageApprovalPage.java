@@ -147,6 +147,45 @@ public class VOImageApprovalPage extends BasePage {
     // -------------------------------------------------------------------------
     // Step 4 + 5: Approve 1st image, Reject 2nd image
     // -------------------------------------------------------------------------
+    // Search event by name in Youth Photo Moderation
+    // -------------------------------------------------------------------------
+
+    public void searchEventInModeration(String eventName) throws InterruptedException {
+        log.info("Searching for event in Youth Photo Moderation: {}", eventName);
+        Thread.sleep(1000);
+
+        // Type event name in the "Event Name" input
+        try {
+            WebElement eventInput = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
+                    ExpectedConditions.visibilityOfElementLocated(
+                            By.xpath("//input[@placeholder='Event Name' or contains(@placeholder,'Event')]"
+                                    + " | //input[@name='event_name' or @name='eventName']"
+                                    + " | //input[@type='text'][1]")));
+            eventInput.clear();
+            eventInput.sendKeys(eventName);
+            Thread.sleep(500);
+            log.info("✅ Typed event name: {}", eventName);
+        } catch (Exception e) {
+            log.warn("Event Name input not found: {}", e.getMessage());
+        }
+
+        // Click Search button
+        try {
+            WebElement searchBtn = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
+                    ExpectedConditions.elementToBeClickable(
+                            By.xpath("//button[normalize-space()='Search']"
+                                    + " | //a[normalize-space()='Search']"
+                                    + " | //input[@type='submit' and @value='Search']")));
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", searchBtn);
+            Thread.sleep(3000);
+            dismissOverlay();
+            log.info("✅ Clicked Search");
+        } catch (Exception e) {
+            log.warn("Search button not found: {}", e.getMessage());
+        }
+    }
+
+    // -------------------------------------------------------------------------
 
     public void approveFirstRejectSecond() throws InterruptedException {
         log.info("Approving 1st image and Rejecting 2nd image...");
@@ -221,6 +260,150 @@ public class VOImageApprovalPage extends BasePage {
     }
 
     // -------------------------------------------------------------------------
+    // Step 7: Click "Add/Edit Gallery" on the latest (1st) card
+    // -------------------------------------------------------------------------
+
+    public void clickAddEditGalleryOnLatestCard() throws InterruptedException {
+        log.info("Clicking 'Add/Edit Gallery' on the latest card...");
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+        dismissOverlay();
+
+        try {
+            WebElement galleryBtn = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("(//a[normalize-space()='Add/Edit Gallery'] | //button[normalize-space()='Add/Edit Gallery'])[1]")));
+            scrollToElement(galleryBtn);
+            Thread.sleep(300);
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", galleryBtn);
+            log.info("✅ Clicked 'Add/Edit Gallery' on latest card");
+        } catch (Exception e) {
+            log.warn("Add/Edit Gallery not found via XPath, trying JS...");
+            ((JavascriptExecutor) driver).executeScript(
+                    "var btns = document.querySelectorAll('a, button');" +
+                    "for(var i=0; i<btns.length; i++) {" +
+                    "  if(btns[i].textContent.trim() === 'Add/Edit Gallery') { btns[i].click(); break; }" +
+                    "}");
+            log.info("✅ Clicked 'Add/Edit Gallery' (JS fallback)");
+        }
+
+        Thread.sleep(5000);
+        waitForPageLoad();
+        dismissOverlay();
+        log.info("✅ On Add Gallery page. URL: {}", driver.getCurrentUrl());
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 8: Browse → Upload 5 images → Publish → Delete 1 → Back
+    // -------------------------------------------------------------------------
+
+    public void uploadGalleryImagesAndPublish() throws InterruptedException {
+        log.info("Uploading 5 images via Browse...");
+        dismissOverlay();
+
+        // Find file input (hidden behind Browse link)
+        WebElement fileInput = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
+                ExpectedConditions.presenceOfElementLocated(
+                        By.cssSelector("input[type='file']")));
+
+        // Make it visible
+        ((JavascriptExecutor) driver).executeScript(
+                "arguments[0].style.display='block';" +
+                "arguments[0].style.opacity='1';" +
+                "arguments[0].classList.remove('hidden');", fileInput);
+        Thread.sleep(500);
+
+        // Get image path
+        String imagePath = getImagePath();
+        log.info("Image path: {}", imagePath);
+
+        // Upload 5 images
+        for (int i = 1; i <= 5; i++) {
+            fileInput.sendKeys(imagePath);
+            Thread.sleep(2000);
+            log.info("✅ Uploaded image {}", i);
+        }
+
+        Thread.sleep(2000);
+
+        // Click "Send For Approval" button
+        log.info("Clicking 'Send For Approval'...");
+        try {
+            WebElement sendBtn = new WebDriverWait(driver, Duration.ofSeconds(15)).until(
+                    ExpectedConditions.elementToBeClickable(
+                            By.xpath("//button[normalize-space()='Send For Approval']"
+                                    + " | //a[normalize-space()='Send For Approval']"
+                                    + " | //button[contains(text(),'Send For Approval') or contains(text(),'Send for Approval')]"
+                                    + " | //button[normalize-space()='Publish']")));
+            scrollToElement(sendBtn);
+            Thread.sleep(300);
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", sendBtn);
+            Thread.sleep(3000);
+            dismissOverlay();
+            log.info("✅ Clicked 'Send For Approval'");
+        } catch (Exception e) {
+            log.warn("Send For Approval button not found: {}", e.getMessage());
+        }
+
+        // Delete one image (click red trash icon on first image)
+        log.info("Deleting one image...");
+        Thread.sleep(2000);
+        try {
+            List<WebElement> deleteIcons = driver.findElements(
+                    By.xpath("//i[contains(@class,'fa-trash') or contains(@class,'delete')]"
+                            + " | //span[contains(@class,'delete') or contains(@class,'trash')]"
+                            + " | //button[contains(@class,'delete')]"
+                            + " | //a[contains(@class,'delete')]"
+                            + " | //*[contains(@class,'fa-trash-alt')]"));
+            if (!deleteIcons.isEmpty()) {
+                WebElement firstDelete = deleteIcons.get(0);
+                scrollToElement(firstDelete);
+                Thread.sleep(300);
+                ((JavascriptExecutor) driver).executeScript("arguments[0].click();", firstDelete);
+                Thread.sleep(2000);
+                handleConfirmationPopup();
+                log.info("✅ Deleted one image");
+            } else {
+                log.warn("No delete icons found");
+            }
+        } catch (Exception e) {
+            log.warn("Delete image failed: {}", e.getMessage());
+        }
+
+        // Click back button (← arrow)
+        log.info("Clicking back button...");
+        Thread.sleep(1000);
+        try {
+            WebElement backBtn = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
+                    ExpectedConditions.elementToBeClickable(
+                            By.xpath("//a[contains(@class,'back') or contains(text(),'←')]"
+                                    + " | //button[contains(@class,'back')]"
+                                    + " | //a[contains(@href,'volunteer')]//i[contains(@class,'arrow')]/.."
+                                    + " | //a[normalize-space()='← Add Gallery']//.."
+                                    + " | //h3/a | //h2/a")));
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", backBtn);
+            Thread.sleep(3000);
+            dismissOverlay();
+            log.info("✅ Clicked back button");
+        } catch (Exception e) {
+            log.warn("Back button not found, using browser back...");
+            driver.navigate().back();
+            Thread.sleep(3000);
+            dismissOverlay();
+            log.info("✅ Navigated back (browser back)");
+        }
+    }
+
+    private String getImagePath() {
+        java.io.File imagesDir = new java.io.File(System.getProperty("user.dir") + java.io.File.separator + "UploadImages");
+        if (!imagesDir.exists()) throw new RuntimeException("UploadImages folder not found");
+        java.io.File[] files = imagesDir.listFiles((dir, name) -> name.toLowerCase().matches(".*\\.(jpg|png|jpeg)"));
+        if (files == null || files.length == 0) throw new RuntimeException("No images found");
+        for (java.io.File f : files) {
+            if (f.length() >= 50 * 1024) return f.getAbsolutePath();
+        }
+        return files[0].getAbsolutePath();
+    }
+
+    // -------------------------------------------------------------------------
     // Step 7: Click "Edit Event" on the latest (1st) card
     // -------------------------------------------------------------------------
 
@@ -260,7 +443,6 @@ public class VOImageApprovalPage extends BasePage {
         log.info("Clicking 'Save as draft'...");
         dismissOverlay();
 
-        // Scroll to bottom
         ((JavascriptExecutor) driver).executeScript("window.scrollTo(0, document.body.scrollHeight);");
         Thread.sleep(2000);
 
