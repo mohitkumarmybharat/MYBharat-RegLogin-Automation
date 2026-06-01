@@ -18,7 +18,6 @@ on:
           - testSuites/testng-registration.xml
           - testSuites/testng-youth.xml
           - testSuites/testng-login.xml
-          - testSuites/testng-ci.xml
       browser:
         description: 'Browser to use'
         required: true
