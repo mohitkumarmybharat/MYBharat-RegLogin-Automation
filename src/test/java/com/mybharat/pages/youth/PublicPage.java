@@ -21,13 +21,34 @@ import com.mybharat.pages.BasePage;
 import com.mybharat.utils.ConfigReader;
 
 /**
- * PublicPage - Handles Header Menu Navigation on MYBharat (https://mybharat.gov.in).
+ * PublicPage - Page Object for Header Menu, Organization Section, and Footer navigation.
+ *
+ * Purpose: Validates all publicly accessible pages on MYBharat (https://mybharat.gov.in)
+ *          without requiring user login. Tests navigation via header menus, dropdown
+ *          submenus, organization section cards, and footer links.
  *
  * Header Menus:
- *   Youth | Quiz & Essay | Resources ▾ | Events & Program ▾ | MY Bharat Podcast | VVVP 2026
+ *   Youth | Quiz &amp; Essay | Resources ▾ | Events &amp; Program ▾ | MY Bharat Podcast | VVVP 2026
  *
  * Resources dropdown: Voices ▸, Blogs, Newsletters, Other Resources
- * Events & Program dropdown: Experiential Learning, Volunteer for Bharat, Mega Events, VBYLD-2026
+ * Events &amp; Program dropdown: Experiential Learning, Volunteer for Bharat, Mega Events, VBYLD-2026
+ *
+ * Key Methods:
+ *   - clickYouth(), clickQuizAndEssay(), clickMyBharatPodcast(), clickVVVP2026()
+ *   - clickResourcesVoices(), clickResourcesBlogs(), clickResourcesNewsletters()
+ *   - clickEventsExperientialLearning(), clickEventsVolunteerForBharat(), etc.
+ *   - clickFooterMegaEvents(), clickFooterPrivacyPolicy(), clickFooterFeedback(), etc.
+ *   - validateDigitalIndiaLogo(), validateDICText()
+ *   - getFailedMenus(), getPassedMenus() — test result tracking
+ *
+ * Fallback Strategy: All menu clicks have a direct URL navigation fallback if the
+ *                    hover/click approach fails (common in CI headless environments).
+ *
+ * Dependencies: BasePage, ConfigReader
+ * Developer: Nishant Sharma (QA Team)
+ *
+ * @see PublicPageTest
+ * @see BasePage
  */
 public class PublicPage extends BasePage {
 
