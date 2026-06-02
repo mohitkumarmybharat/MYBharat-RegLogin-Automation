@@ -14,12 +14,33 @@ import com.mybharat.pages.blog.BlogAdminPage;
 import com.mybharat.pages.blog.BlogPage;
 
 /**
- * BlogTest - Creates a blog post on MY Bharat.
- * 
- * Runs on the SAME browser session AFTER QuizCertificateVerificationTest.
- * User is already logged in.
- * 
- * Flow: Navigate to Blogs → Write a Blog → Fill form → Preview → Post → Verify success
+ * BlogTest - End-to-end test for blog creation on MY Bharat.
+ *
+ * Purpose: Validates that a logged-in user can write, preview, and publish a blog post.
+ *          Also verifies the blog appears in the "My Blogs" section with Pending status.
+ *
+ * Prerequisites: User must already be logged in (runs AFTER QuizCertificateVerificationTest
+ *                in the same browser session within the testng-youth.xml suite).
+ *
+ * Flow:
+ *   1. writeAndPublishBlog() — Navigate to Blogs → Write a Blog → Fill form → Preview → Post
+ *   2. verifyBlogInMyBlogs() — Check that the blog appears with "Pending" status
+ *
+ * Admin Flow (commented out, for future use):
+ *   3. adminApprovesBlog()         — Admin logs in and approves the blog
+ *   4. verifyBlogApproved()        — Youth verifies status changed to Approved
+ *   5. verifyBlogVisibleOnPublicPage() — Published blog visible publicly
+ *   6. adminUnpublishesBlog()      — Admin unpublishes the blog
+ *   7. verifyBlogUnpublished()     — Youth verifies Unpublished status
+ *
+ * Run:
+ *   mvn test -Denv=beta -Dbrowser=chrome -Dsurefire.suiteXmlFiles=testSuites/testng-youth.xml
+ *
+ * Dependencies: BaseTest, BlogPage, BlogAdminPage, TestListeners
+ * Developer: Nishant Sharma (QA Team)
+ *
+ * @see BlogPage
+ * @see BlogAdminPage
  */
 @Listeners(TestListeners.class)
 public class BlogTest extends BaseTest {

@@ -24,10 +24,13 @@ import com.mybharat.pages.BasePage;
 import com.mybharat.utils.ConfigReader;
 
 /**
- * YouthProfilePage - Handles the NEW React-based Youth profile completion flow.
- * 
- * The profile has been migrated from Angular/PHP to React 19 + Tailwind + react-select.
- * 
+ * YouthProfilePage - Page Object for the NEW React-based Youth profile completion flow.
+ *
+ * Purpose: Handles the complete youth profile form on the React 19 + Tailwind profile page.
+ *          Fills all accordion sections (About, Area of Interest, Education, Sports,
+ *          Languages, Professional Summary, Work Experience, Tools) using react-select
+ *          dropdowns, text inputs, and file uploads.
+ *
  * Page Structure:
  *   - ProfileBanner (top banner with camera upload)
  *   - UserInfoCard (photo, name, MBP ID, share, badge)
@@ -35,14 +38,38 @@ import com.mybharat.utils.ConfigReader;
  *   - Tabs: "About" | "Basic Info" | "Reward Points"
  *   - About tab contains accordion sections: About, Area of Interest, Education,
  *     Sports, Languages, Professional Summary, Work Experience, Tools, Certifications
- * 
- * Key differences from old UI:
+ *
+ * Key Differences from Old UI:
  *   - No element IDs on form fields (use name attrs, placeholders, text content)
- *   - react-select for multi-select dropdowns (custom DOM, not native select)
+ *   - react-select for multi-select dropdowns (custom DOM, not native &lt;select&gt;)
  *   - Accordion sections expand/collapse with +/- icons
  *   - SectionWrapper with Edit (pencil) or Add (+) icons
  *   - Buttons identified by text content (Save, Update, Cancel)
  *   - Toast notifications via react-toastify
+ *
+ * Key Methods:
+ *   - completeYouthProfile()       — orchestrates filling all sections end-to-end
+ *   - navigateToProfilePage()      — opens /youth-profile URL
+ *   - navigateToBasicInfo()        — clicks the Basic Info tab
+ *   - extractEmailFromProfile()    — reads email from the Basic Info form
+ *   - uploadProfilePhoto()         — uploads a random image via hidden file input
+ *   - fillAboutSection()           — fills the About textarea
+ *   - addAreaOfInterest()          — selects interests via react-select
+ *   - addEducationQualification()  — fills education form (type, state, district, school)
+ *   - addLanguage()                — selects language via react-select
+ *   - fillProfessionalSummary()    — fills summary textarea and skills
+ *   - addWorkExperience()          — fills job title, company, dates
+ *   - fillToolsSection()           — enters tools and video/social links
+ *
+ * Environment:
+ *   Beta: https://yuva-beta.mybharats.in/youth-profile
+ *   Prod: https://mybharat.gov.in/youth-profile
+ *
+ * Dependencies: BasePage, ConfigReader, Apache POI (Excel), Selenium WebDriverWait
+ * Developer: Nishant Sharma (QA Team)
+ *
+ * @see YouthProfileTest
+ * @see BasicInfoTest
  */
 public class YouthProfilePage extends BasePage {
 

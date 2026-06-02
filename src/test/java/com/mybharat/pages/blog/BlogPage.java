@@ -16,11 +16,25 @@ import com.mybharat.pages.BasePage;
 import com.mybharat.utils.ConfigReader;
 
 /**
- * BlogPage - Handles blog creation flow on MY Bharat.
- * 
- * Flow: Navigate to Blogs → Click "Write a Blog" → Fill form → Preview → Submit
- * 
- * URL: /voices/blogs (listing) → /post-blog (create form)
+ * BlogPage - Handles the complete blog creation and verification flow on MY Bharat.
+ *
+ * Supported Environments:
+ *   - Beta: https://yuva-beta.mybharats.in/blogs/
+ *   - Prod: https://mybharat.gov.in/blogs/
+ *
+ * Flow:
+ *   1. Navigate to /blogs/ (authenticated page with "Write a Blog" button)
+ *   2. Click "Write a Blog" → Opens blog creation form
+ *   3. Fill form: Title, Category (Technology), Cover Image (mybharat_blog_cover.png), Description, Author Bio
+ *   4. Click Preview → Click Post
+ *   5. Verify success message
+ *   6. Navigate to My Blogs in profile → Verify blog appears with "Pending" status
+ *
+ * Note: The public blogs listing is at /voices/blogs (different from the create page)
+ * Note: Cover image always uses UploadImages/mybharat_blog_cover.png
+ * Note: Blog titles are randomly selected from a pool of 10 realistic titles
+ *
+ * Developer: Sonali
  */
 public class BlogPage extends BasePage {
 

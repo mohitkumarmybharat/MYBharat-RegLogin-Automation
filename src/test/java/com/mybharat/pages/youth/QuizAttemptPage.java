@@ -16,7 +16,35 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import com.mybharat.utils.ConfigReader;import com.mybharat.pages.BasePage;
 
 /**
- * PlayQuizPage - Handles quiz registration and answering all questions.
+ * QuizAttemptPage - Page Object for quiz registration, attempt, and submission on MYBharat.
+ *
+ * Purpose: Navigates to the Quiz &amp; Essay section, starts a quiz, answers all questions
+ *          with random selections, submits the quiz, provides feedback, and optionally
+ *          downloads the quiz certificate.
+ *
+ * Flow:
+ *   1. startQuiz()                    — navigates to quiz section, selects a quiz, fills
+ *                                       details form, selects language, starts the quiz
+ *   2. attemptAllQuestionsAndSubmit() — loops through all questions, selects random
+ *                                       answers, clicks Next/Save, then submits
+ *   3. downloadQuizCertificateAndClose() — clicks Download, verifies, closes modal
+ *
+ * Key Methods:
+ *   - startQuiz()                    — full quiz initialization flow
+ *   - attemptAllQuestionsAndSubmit() — dynamic question answering (any question count)
+ *   - downloadQuizCertificateAndClose() — certificate download and modal cleanup
+ *   - getQuizName()                  — returns the quiz name that was played
+ *
+ * Dynamic Question Detection: Does not hardcode question count — detects the last
+ *                             question by absence of Next button or presence of Submit.
+ *
+ * Quiz Name Persistence: Saves quiz name to reports/quiz_name.txt for CI workflow reference.
+ *
+ * Dependencies: BasePage, ConfigReader, Selenium WebDriverWait
+ * Developer: Nishant Sharma (QA Team)
+ *
+ * @see QuizAttemptTest
+ * @see QuizCertificateVerificationTest
  */
 public class QuizAttemptPage extends BasePage {
 

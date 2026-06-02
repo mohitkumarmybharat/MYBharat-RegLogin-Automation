@@ -14,9 +14,40 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import com.mybharat.pages.BasePage;
 
 /**
- * BlogAdminPage - Handles admin blog approval/unpublish flow.
- * 
- * Opens a new window, logs in as admin, approves/unpublishes blogs.
+ * BlogAdminPage - Page Object for the Admin blog management flow.
+ *
+ * Purpose: Handles admin-side blog operations — logging in as admin, approving pending
+ *          blog posts, and unpublishing approved blogs. Operates in single-window mode
+ *          by logging out the current user and logging in as admin.
+ *
+ * Flow (Approve):
+ *   1. performLogout() — logs out the current youth session
+ *   2. loginAsAdmin()  — navigates to home, signs in with admin credentials
+ *   3. navigateToNewsletterAndBlogs() — opens the admin blog management section
+ *   4. approveBlog(title) — finds the blog entry and clicks Approve/Publish
+ *
+ * Flow (Unpublish):
+ *   1. navigateToNewsletterAndBlogs() → click Approved tab
+ *   2. Find blog entry → click Unpublish → confirm popup
+ *
+ * Environment:
+ *   Beta: https://yuva-beta.mybharats.in (admin: nishantji0021@gmail.com)
+ *   Prod: https://mybharat.gov.in (admin: 8077334438)
+ *
+ * Key Methods:
+ *   - loginAsAdmin()                — full admin login with password credentials
+ *   - navigateToNewsletterAndBlogs() — opens Newsletter &amp; Blogs admin section
+ *   - approveBlog(title)            — approves a pending blog by title
+ *   - unpublishBlog(title)          — unpublishes an approved blog
+ *   - switchToYouthWindow()         — logs out admin to switch back to youth
+ *   - switchToAdminWindow()         — logs out youth and logs in as admin
+ *   - performLogout()               — UI-based logout with fallback strategies
+ *
+ * Dependencies: BasePage, ConfigReader
+ * Developer: Nishant Sharma (QA Team)
+ *
+ * @see BlogPage
+ * @see BlogTest
  */
 public class BlogAdminPage extends BasePage {
 
