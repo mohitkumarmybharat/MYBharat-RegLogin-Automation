@@ -437,19 +437,26 @@ git push --force-with-lease origin your-feature-branch
 
 ---
 
-## Team Contacts
+## Team
 
-| Role | Name | Responsibility |
-|------|------|----------------|
-| Lead | Nishant Sharma | Framework, CI/CD, code review, merge to main |
-| Tester | Tejas | Registration, Login, Logout |
-| Tester | Alamgeer | Profile, Certificate, Basic Info |
-| Tester | Uvais | Quiz, Quiz Certificate |
-| Tester | Sonali | Blog |
-| Tester | Prashant/Hariom | Public Pages |
-| Tester | Pal | Mega Event |
-| Tester | Manoj | VO (Volunteer Opportunity) |
-| Tester | Mohit | Essay |
+### Developers (Built the features)
+
+| Name | Modules Developed |
+|------|-------------------|
+| Tejas | Registration, Login, Logout |
+| Alamgeer | Profile, Certificate, Basic Info |
+| Uvais | Quiz, Quiz Certificate |
+| Sonali | Blog |
+| Prashant/Hariom | Public Pages |
+
+### Testers (Automation script writers)
+
+| Role | Name | Automation Modules |
+|------|------|-------------------|
+| Lead | Nishant Sharma | Framework, CI/CD, Registration, Login, Quiz, ELP Cycle, Blog, Certificate |
+| Tester | Nishant Pal | Mega Event, Nodal Registration, Join Partner, Youth Club |
+| Tester | Manoj Kumar | Public Pages, Profile, Basic Info, VO Cycle, CV Builder, Public Profile, NCS, Health & Fitness |
+| Tester | Mohit Kumar | Essay (Create/Play/Evaluate), Mentor/Mentee |
 
 ---
 
