@@ -25,28 +25,28 @@ mvn test -Denv=beta -Dbrowser=chrome -Dsurefire.suiteXmlFiles=testSuites/testng-
 
 ## Test Modules
 
-| # | Module | Test Method | Status | Suite File | Developer |
-|---|--------|-------------|--------|------------|-----------|
-| 1 | Public Pages | publicPages | ✅ Done | `testng-public-page.xml` | Manoj Kumar |
-| 2 | Registration | registerIndianYouth | ✅ Done | `testng-registration.xml` | Nishant Sharma |
-| 3 | Logout | logoutUser | ✅ Done | — | Nishant Sharma |
-| 4 | Login (OTP) | loginWithOTP | ✅ Done | `testng-login.xml` | Nishant Sharma |
-| 5 | Profile | completeYouthProfile | ✅ Done | — | Manoj Kumar |
-| 6 | Certificate | verifyRegistrationCertificateDownload | ✅ Done | — | Nishant Sharma |
-| 7 | Basic Info | clickBasicInfoAndExtractEmail | ✅ Done | — | Manoj Kumar |
-| 8 | Quiz | attemptCompetitiveQuiz | ✅ Done | — | Nishant Sharma |
-| 9 | Quiz Certificate | verifyQuizCertificateDownload | ✅ Done | — | Nishant Sharma |
-| 10 | Blog | writeAndPublishBlog | ✅ Done | `testng-blog.xml` | Nishant Sharma |
-| 11 | ELP Cycle | (in progress) | 🔧 WIP | `testng-elp.xml` | Nishant Sharma |
-| 12 | Mega Event | (in progress) | 🔧 WIP | `testng-megaevent.xml` | Nishant Pal |
-| 13 | VO Cycle | (planned) | 🔲 TODO | — | Manoj Kumar |
-| 14 | CV Builder | (planned) | 🔲 TODO | — | Manoj Kumar |
-| 15 | Essay (Create/Play/Evaluate) | (planned) | 🔲 TODO | — | Mohit Kumar |
-| 16 | NCS Integration | (planned) | 🔲 TODO | — | Manoj Kumar |
-| 17 | Health and Fitness | (planned) | 🔲 TODO | — | Manoj Kumar |
-| 18 | Youth Club Registration | (planned) | 🔲 TODO | — | Nishant Pal |
-| 19 | Mentor/Mentee | (planned) | 🔲 TODO | — | Mohit Kumar |
-| 20 | New React Public Profile | (planned) | 🔲 TODO | — | Manoj Kumar |
+| # | Module | Test Method | Status | Suite File | Developer | Tester |
+|---|--------|-------------|--------|------------|-----------|--------|
+| 1 | Public Pages | publicPages | ✅ Done | `testng-public-page.xml` | Prashant/Hariom | Manoj Kumar |
+| 2 | Registration | registerIndianYouth | ✅ Done | `testng-registration.xml` | Tejas | Nishant Sharma |
+| 3 | Logout | logoutUser | ✅ Done | — | Tejas | Nishant Sharma |
+| 4 | Login (OTP) | loginWithOTP | ✅ Done | `testng-login.xml` | Tejas | Nishant Sharma |
+| 5 | Profile | completeYouthProfile | ✅ Done | — | Alamgeer | Manoj Kumar |
+| 6 | Certificate | verifyRegistrationCertificateDownload | ✅ Done | — | Alamgeer | Nishant Sharma |
+| 7 | Basic Info | clickBasicInfoAndExtractEmail | ✅ Done | — | Alamgeer | Manoj Kumar |
+| 8 | Quiz | attemptCompetitiveQuiz | ✅ Done | — | Uvais | Nishant Sharma |
+| 9 | Quiz Certificate | verifyQuizCertificateDownload | ✅ Done | — | Uvais | Nishant Sharma |
+| 10 | Blog | writeAndPublishBlog | ✅ Done | `testng-blog.xml` | Sonali | Nishant Sharma |
+| 11 | ELP Cycle | (in progress) | 🔧 WIP | `testng-elp.xml` | — | Nishant Sharma |
+| 12 | Mega Event | (in progress) | 🔧 WIP | `testng-megaevent.xml` | — | Nishant Pal |
+| 13 | VO Cycle | (planned) | 🔲 TODO | — | — | Manoj Kumar |
+| 14 | CV Builder | (planned) | 🔲 TODO | — | — | Manoj Kumar |
+| 15 | Essay (Create/Play/Evaluate) | (planned) | 🔲 TODO | — | — | Mohit Kumar |
+| 16 | NCS Integration | (planned) | 🔲 TODO | — | — | Manoj Kumar |
+| 17 | Health and Fitness | (planned) | 🔲 TODO | — | — | Manoj Kumar |
+| 18 | Youth Club Registration | (planned) | 🔲 TODO | — | — | Nishant Pal |
+| 19 | Mentor/Mentee | (planned) | 🔲 TODO | — | — | Mohit Kumar |
+| 20 | New React Public Profile | (planned) | 🔲 TODO | — | — | Manoj Kumar |
 
 ## E2E Flow (testng-all-modules.xml)
 
