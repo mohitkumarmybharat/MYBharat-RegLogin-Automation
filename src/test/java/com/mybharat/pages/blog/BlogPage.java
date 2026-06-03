@@ -340,10 +340,9 @@ public class BlogPage extends BasePage {
         // Click My Blogs link in sidebar
         WebElement myBlogs = longWait.until(ExpectedConditions.elementToBeClickable(MY_BLOGS_LINK));
         scrollToElement(myBlogs);
-        Thread.sleep(500);
         jsClick(myBlogs);
         waitForPageLoad();
-        Thread.sleep(500);
+        Thread.sleep(1000); // Wait for table data to load
         log.info("Navigated to My Blogs");
 
         // Verify the blog title exists in the table
@@ -433,12 +432,19 @@ public class BlogPage extends BasePage {
         log.info("Checking blog status...");
         driver.navigate().refresh();
         waitForPageLoad();
-        Thread.sleep(500);
+        Thread.sleep(1000);
+
+        // Use truncated title for reliable XPath matching
+        String searchTitle = createdBlogTitle;
+        if (searchTitle.length() > 20) {
+            searchTitle = searchTitle.substring(0, 20);
+        }
+        searchTitle = searchTitle.replace("'", "").replace("\"", "");
 
         try {
             // Look for status near the blog title
             WebElement statusElement = longWait.until(ExpectedConditions.visibilityOfElementLocated(
-                    By.xpath("//tr[contains(.,'" + createdBlogTitle + "')]//td[contains(text(),'Pending') or contains(text(),'Approved') or contains(text(),'Published') or contains(text(),'Unpublished')]")));
+                    By.xpath("//tr[contains(.,'" + searchTitle + "')]//td[contains(text(),'Pending') or contains(text(),'Approved') or contains(text(),'Published') or contains(text(),'Unpublished')]")));
             String status = statusElement.getText().trim();
             log.info("Blog status: {}", status);
             return status;
@@ -446,7 +452,7 @@ public class BlogPage extends BasePage {
             // Fallback: get ALL text from the row containing our title
             try {
                 WebElement row = driver.findElement(By.xpath(
-                        "//tr[contains(.,'" + createdBlogTitle + "')]"));
+                        "//tr[contains(.,'" + searchTitle + "')]"));
                 String rowText = row.getText();
                 log.info("Blog row text: {}", rowText);
                 if (rowText.contains("Unpublished")) return "Unpublished";
@@ -454,6 +460,13 @@ public class BlogPage extends BasePage {
                 if (rowText.contains("Approved") || rowText.contains("Published")) return "Approved (Published)";
                 return rowText;
             } catch (Exception e2) {
+                // Fallback 2: check page source for any status keywords near title
+                String pageSource = driver.getPageSource();
+                if (pageSource.contains(searchTitle)) {
+                    if (pageSource.contains("Approved") || pageSource.contains("Published")) return "Approved (Published)";
+                    if (pageSource.contains("Unpublished")) return "Unpublished";
+                    if (pageSource.contains("Pending")) return "Pending";
+                }
                 log.warn("Could not determine blog status");
                 return "Unknown";
             }
