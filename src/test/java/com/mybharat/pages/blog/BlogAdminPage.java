@@ -5,7 +5,6 @@ import java.time.Duration;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
@@ -16,48 +15,28 @@ import com.mybharat.pages.BasePage;
 /**
  * BlogAdminPage - Page Object for the Admin blog management flow.
  *
- * Purpose: Handles admin-side blog operations — logging in as admin, approving pending
- *          blog posts, and unpublishing approved blogs. Operates in single-window mode
- *          by logging out the current user and logging in as admin.
- *
  * Flow (Approve):
- *   1. performLogout() — logs out the current youth session
- *   2. loginAsAdmin()  — navigates to home, signs in with admin credentials
- *   3. navigateToNewsletterAndBlogs() — opens the admin blog management section
- *   4. approveBlog(title) — finds the blog entry and clicks Approve/Publish
+ *   1. loginAsAdmin()  — login with password → loginAsUser (impersonate blog verifier)
+ *   2. navigateToNewsletterAndBlogs() — opens Newsletter &amp; Blogs admin section
+ *   3. approveBlog(title) — finds the blog entry and clicks Approve/Publish
  *
  * Flow (Unpublish):
  *   1. navigateToNewsletterAndBlogs() → click Approved tab
  *   2. Find blog entry → click Unpublish → confirm popup
  *
  * Environment:
- *   Beta: https://yuva-beta.mybharats.in (admin: nishantji0021@gmail.com)
- *   Prod: https://mybharat.gov.in (admin: 8077334438)
+ *   Beta: admin=nishantji0021@gmail.com, verifier=jykmqows@gmail.com
+ *   Prod: admin=8077334438, verifier=pankaj.dhamija@gov.in1
  *
- * Key Methods:
- *   - loginAsAdmin()                — full admin login with password credentials
- *   - navigateToNewsletterAndBlogs() — opens Newsletter &amp; Blogs admin section
- *   - approveBlog(title)            — approves a pending blog by title
- *   - unpublishBlog(title)          — unpublishes an approved blog
- *   - switchToYouthWindow()         — logs out admin to switch back to youth
- *   - switchToAdminWindow()         — logs out youth and logs in as admin
- *   - performLogout()               — UI-based logout with fallback strategies
- *
- * Dependencies: BasePage, ConfigReader
  * Developer: Nishant Sharma (QA Team)
- *
- * @see BlogPage
- * @see BlogTest
  */
 public class BlogAdminPage extends BasePage {
 
     private static final Logger log = LogManager.getLogger(BlogAdminPage.class);
 
     private final WebDriverWait longWait;
-    private String youthWindowHandle;
-    private String adminWindowHandle;
 
-    // Locators - Login (React frontend)
+    // Locators - React frontend login
     private static final By SIGN_IN_BUTTON = By.xpath("//span[normalize-space()='Sign In']");
     private static final By LOGIN_WITH_PASSWORD = By.xpath("//span[@id='login_with_pwd']");
     private static final By USERNAME_INPUT = By.xpath("//input[@id='username']");
@@ -65,7 +44,7 @@ public class BlogAdminPage extends BasePage {
     private static final By CONSENT_CHECKBOX = By.cssSelector("#consentCheck2");
     private static final By LOGIN_BUTTON = By.xpath("//button[@id='signInButton']");
 
-    // Locators - Logout (user menu on React frontend)
+    // Locators - Logout
     private static final By USER_MENU_BUTTON = By.cssSelector("button[class='flex items-center gap-3 cursor-pointer']");
     private static final By LOGOUT_BUTTON = By.xpath("(//button[@class='flex items-center gap-3 w-full text-left px-5 py-1 text-[15px] text-[#184c5c] hover:bg-gray-100 transition cursor-pointer'])[1]");
 
@@ -73,7 +52,7 @@ public class BlogAdminPage extends BasePage {
     private static final By LOGIN_AS_USER_USERNAME = By.xpath("//input[@id='username']");
     private static final By LOGIN_AS_USER_SUBMIT = By.xpath("//input[@value='Submit']");
 
-    // Locators - Admin Side Menu
+    // Locators - Admin Side Menu & Blog Actions
     private static final By NEWSLETTER_BLOGS_MENU = By.xpath("//a[@title='Newsletter and Blogs']");
     private static final By APPROVE_BUTTON = By.xpath("//button[normalize-space()='Approve'] | //button[normalize-space()='Publish']");
     private static final By APPROVED_TAB = By.xpath("//button[normalize-space()='Approved']");
@@ -86,16 +65,14 @@ public class BlogAdminPage extends BasePage {
     }
 
     /**
-     * Prepare for admin login (logout current youth session).
+     * No-op — single window mode, no separate admin window needed.
      */
-    public void openAdminWindow() throws InterruptedException {
+    public void openAdminWindow() {
         log.info("Preparing admin login (single window mode)...");
-        // No new window needed — will logout and login as admin in same window
     }
 
     /**
-     * Login as admin with password credentials via the React frontend.
-     * After login, navigates to /settings/loginas_user to impersonate the blog verifier.
+     * Login as admin via React frontend, then impersonate the blog verifier user.
      */
     public void loginAsAdmin() throws InterruptedException {
         String env = System.getProperty("env", "beta");
@@ -115,10 +92,10 @@ public class BlogAdminPage extends BasePage {
 
         log.info("Logging in as admin on: {}", adminUrl);
 
-        // First logout the current session via UI
+        // Logout current youth session
         performLogout();
 
-        // Now navigate to home — should show Sign In
+        // Navigate to home
         driver.get(adminUrl);
         waitForPageLoad();
         Thread.sleep(500);
@@ -127,7 +104,6 @@ public class BlogAdminPage extends BasePage {
         try {
             WebElement popup = driver.findElement(By.xpath("//i[@class='fa fa-times']"));
             if (popup.isDisplayed()) popup.click();
-            Thread.sleep(500);
         } catch (Exception e) { /* no popup */ }
 
         // Click Sign In
@@ -140,28 +116,20 @@ public class BlogAdminPage extends BasePage {
         jsClick(loginWithPwd);
         Thread.sleep(500);
 
-        // Enter username
+        // Enter credentials
         WebElement usernameInput = longWait.until(ExpectedConditions.visibilityOfElementLocated(USERNAME_INPUT));
         usernameInput.clear();
         usernameInput.sendKeys(username);
-        Thread.sleep(300);
 
-        // Enter password
         WebElement passwordInput = longWait.until(ExpectedConditions.visibilityOfElementLocated(PASSWORD_INPUT));
         passwordInput.clear();
         passwordInput.sendKeys(password);
-        Thread.sleep(300);
 
-        // Click consent checkbox
+        // Consent checkbox
         try {
             WebElement consent = driver.findElement(CONSENT_CHECKBOX);
-            if (!consent.isSelected()) {
-                jsClick(consent);
-            }
-        } catch (Exception e) {
-            log.warn("Consent checkbox not found or already checked");
-        }
-        Thread.sleep(300);
+            if (!consent.isSelected()) jsClick(consent);
+        } catch (Exception e) { /* already checked or not present */ }
 
         // Click Login
         WebElement loginBtn = longWait.until(ExpectedConditions.elementToBeClickable(LOGIN_BUTTON));
@@ -170,14 +138,13 @@ public class BlogAdminPage extends BasePage {
         Thread.sleep(2000);
         log.info("✅ Admin logged in successfully");
 
-        // Now navigate to Login As User page and impersonate the blog verifier
+        // Impersonate the blog verifier user
         loginAsUser();
     }
 
     /**
      * Navigate to /settings/loginas_user and impersonate the blog verifier user.
-     * Beta: jykmqows@gmail.com
-     * Prod: pankaj.dhamija@gov.in1
+     * Beta: jykmqows@gmail.com | Prod: pankaj.dhamija@gov.in1
      */
     private void loginAsUser() throws InterruptedException {
         String env = System.getProperty("env", "beta");
@@ -195,33 +162,90 @@ public class BlogAdminPage extends BasePage {
         log.info("Navigating to Login As User: {}", loginAsUserUrl);
         driver.get(loginAsUserUrl);
         waitForPageLoad();
-        Thread.sleep(3000); // Allow extra time for the admin panel page to fully render
+        Thread.sleep(2000);
 
-        // Enter the impersonation email
-        WebDriverWait extendedWait = new WebDriverWait(driver, Duration.ofSeconds(30));
-        WebElement usernameField = extendedWait.until(ExpectedConditions.visibilityOfElementLocated(LOGIN_AS_USER_USERNAME));
+        // Check if redirected to CakePHP login page (not loginas_user itself)
+        String currentUrl = driver.getCurrentUrl();
+        log.info("Current URL: {}", currentUrl);
+
+        if (!currentUrl.contains("loginas_user") &&
+                (currentUrl.endsWith("/login") || currentUrl.contains("/pages/login"))) {
+            log.info("Redirected to admin login — logging in via CakePHP panel");
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+            WebElement txtUsername = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("txtusername")));
+            txtUsername.clear();
+            txtUsername.sendKeys(env.equals("prod") ? "8077334438" : "nishantji0021@gmail.com");
+
+            WebElement txtPassword = driver.findElement(By.id("txtpassword"));
+            txtPassword.clear();
+            txtPassword.sendKeys("Super@1234");
+
+            jsClick(driver.findElement(By.id("btnlogin")));
+            waitForPageLoad();
+            Thread.sleep(2000);
+
+            // Re-navigate to loginas_user
+            driver.get(loginAsUserUrl);
+            waitForPageLoad();
+            Thread.sleep(2000);
+            log.info("Re-navigated to Login As User after CakePHP login");
+        }
+
+        // Find username field (multiple strategies for robustness)
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
+        WebElement usernameField = findUsernameField(wait);
+
         usernameField.clear();
         usernameField.sendKeys(impersonateEmail);
         log.info("Entered impersonation email: {}", impersonateEmail);
-        Thread.sleep(300);
 
-        // Click Submit (form uses AJAX — will redirect on success)
-        WebElement submitBtn = extendedWait.until(ExpectedConditions.elementToBeClickable(LOGIN_AS_USER_SUBMIT));
+        // Click Submit
+        WebElement submitBtn;
+        try {
+            submitBtn = wait.until(ExpectedConditions.elementToBeClickable(LOGIN_AS_USER_SUBMIT));
+        } catch (Exception e) {
+            submitBtn = driver.findElement(By.cssSelector("input[type='submit'], button[type='submit']"));
+        }
         jsClick(submitBtn);
-        Thread.sleep(3000); // Wait for AJAX + cookie set + redirect
         waitForPageLoad();
-        Thread.sleep(1000);
+        Thread.sleep(2000); // AJAX redirect
         log.info("✅ Logged in as user: {}", impersonateEmail);
     }
 
     /**
-     * Navigate to Newsletter and Blogs section in admin dashboard.
+     * Find the username field on /settings/loginas_user with fallback strategies.
+     */
+    private WebElement findUsernameField(WebDriverWait wait) {
+        // Strategy 1: By ID
+        try {
+            return wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("username")));
+        } catch (Exception e1) {
+            log.info("Trying fallback locators for username field...");
+        }
+        // Strategy 2: By name
+        try {
+            return new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                    ExpectedConditions.visibilityOfElementLocated(By.name("username")));
+        } catch (Exception e2) { /* continue */ }
+        // Strategy 3: By placeholder
+        try {
+            return new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                    ExpectedConditions.visibilityOfElementLocated(
+                            By.xpath("//input[@placeholder='Email or Username']")));
+        } catch (Exception e3) { /* continue */ }
+        // Strategy 4: Any text input
+        return new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                ExpectedConditions.visibilityOfElementLocated(
+                        By.cssSelector("input[type='text'], input.form-control")));
+    }
+
+    /**
+     * Navigate to Newsletter and Blogs section.
      */
     public void navigateToNewsletterAndBlogs() throws InterruptedException {
         log.info("Navigating to Newsletter and Blogs...");
         WebElement menu = longWait.until(ExpectedConditions.elementToBeClickable(NEWSLETTER_BLOGS_MENU));
         scrollToElement(menu);
-        Thread.sleep(500);
         jsClick(menu);
         waitForPageLoad();
         Thread.sleep(500);
@@ -234,17 +258,15 @@ public class BlogAdminPage extends BasePage {
     public void approveBlog(String blogTitle) throws InterruptedException {
         log.info("Approving blog: {}", blogTitle);
 
-        // Find the blog entry in the table
+        // Find the blog entry
         try {
             WebElement blogRow = longWait.until(ExpectedConditions.visibilityOfElementLocated(
                     By.xpath("//*[contains(text(),'" + blogTitle + "')]")));
             scrollToElement(blogRow);
-            Thread.sleep(500);
             blogRow.click();
             Thread.sleep(500);
         } catch (Exception e) {
-            log.warn("Blog entry not found by title, clicking first pending entry");
-            // Fallback: click first pending entry
+            log.warn("Blog not found by title, clicking first pending entry");
             try {
                 WebElement pendingEntry = longWait.until(ExpectedConditions.elementToBeClickable(
                         By.xpath("//td[contains(text(),'Pending')]/ancestor::tr")));
@@ -255,33 +277,30 @@ public class BlogAdminPage extends BasePage {
             }
         }
 
-        // Click Approve/Publish button
+        // Click Approve/Publish
         WebElement approveBtn = longWait.until(ExpectedConditions.elementToBeClickable(APPROVE_BUTTON));
         scrollToElement(approveBtn);
-        Thread.sleep(500);
         jsClick(approveBtn);
         Thread.sleep(500);
         log.info("✅ Blog approved");
     }
 
     /**
-     * Unpublish the blog entry — click Approved tab → find blog → click Unpublish → confirm popup.
+     * Unpublish the blog entry.
      */
     public void unpublishBlog(String blogTitle) throws InterruptedException {
         log.info("Unpublishing blog: {}", blogTitle);
 
-        // Click "Approved" tab to see published blogs
+        // Click Approved tab
         WebElement approvedTab = longWait.until(ExpectedConditions.elementToBeClickable(APPROVED_TAB));
         jsClick(approvedTab);
         Thread.sleep(500);
-        log.info("Clicked Approved tab");
 
         // Find and click the blog entry
         try {
             WebElement blogRow = longWait.until(ExpectedConditions.visibilityOfElementLocated(
                     By.xpath("//*[contains(text(),'" + blogTitle + "')]")));
             scrollToElement(blogRow);
-            Thread.sleep(500);
             jsClick(blogRow);
             Thread.sleep(500);
         } catch (Exception e) {
@@ -296,14 +315,13 @@ public class BlogAdminPage extends BasePage {
             }
         }
 
-        // Click Unpublish button
+        // Click Unpublish
         WebElement unpublishBtn = longWait.until(ExpectedConditions.elementToBeClickable(UNPUBLISH_BUTTON));
         scrollToElement(unpublishBtn);
-        Thread.sleep(500);
         jsClick(unpublishBtn);
         Thread.sleep(500);
 
-        // Confirm in popup
+        // Confirm
         WebElement confirmBtn = longWait.until(ExpectedConditions.elementToBeClickable(UNPUBLISH_CONFIRM_BUTTON));
         jsClick(confirmBtn);
         Thread.sleep(500);
@@ -311,16 +329,16 @@ public class BlogAdminPage extends BasePage {
     }
 
     /**
-     * Switch to youth account: logout current admin session via UI.
+     * Switch to youth account: logout current session.
      */
     public void switchToYouthWindow() throws InterruptedException {
-        log.info("Switching to youth account (logging out admin)...");
+        log.info("Switching to youth account (logging out)...");
         performLogout();
-        log.info("Admin logged out");
+        log.info("Logged out");
     }
 
     /**
-     * Switch to admin account: logout current session and login as admin.
+     * Switch to admin account: login as admin again.
      */
     public void switchToAdminWindow() throws InterruptedException {
         log.info("Switching to admin account...");
@@ -328,21 +346,19 @@ public class BlogAdminPage extends BasePage {
     }
 
     /**
-     * No-op since we're using single window with logout/login.
+     * No-op — single window mode.
      */
     public void closeAdminWindow() {
         log.info("Single window mode — no admin window to close");
     }
 
     /**
-     * Perform logout via UI: click user menu → click logout.
+     * Perform logout via UI with fallback.
      */
     private void performLogout() throws InterruptedException {
-        Thread.sleep(500);
         try {
             WebElement userMenu = longWait.until(ExpectedConditions.elementToBeClickable(USER_MENU_BUTTON));
             scrollToElement(userMenu);
-            Thread.sleep(500);
             jsClick(userMenu);
             Thread.sleep(500);
 
@@ -353,7 +369,6 @@ public class BlogAdminPage extends BasePage {
             log.info("Logged out via UI");
         } catch (Exception e) {
             log.warn("UI logout failed, trying fallback: {}", e.getMessage());
-            // Fallback: use the existing LogoutPage locator
             try {
                 WebElement menu = longWait.until(ExpectedConditions.elementToBeClickable(
                         By.xpath("//button[@class='flex items-center rounded-full cursor-pointer']")));
