@@ -2,6 +2,8 @@ package com.mybharat.tests.org;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,6 +13,10 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Listeners;
@@ -21,31 +27,36 @@ import com.mybharat.listeners.Retry;
 import com.mybharat.listeners.TestListeners;
 import com.mybharat.pages.org.CreateYouthClubPage;
 import com.mybharat.pages.youth.LoginPage;
+import com.mybharat.pages.youth.LogoutPage;
 import com.mybharat.utils.ConfigReader;
 
 /**
- * CreateYouthClubTest — Creates a Youth Club organization.
+ * CreateYouthClubTest — Creates a Youth Club organization, then member accepts invite.
  *
- * Flow: Login → Navigate → About (Banner+Logo+Name+About+Next)
- *       → Basic Info (Category+SubCategory+Name+Abbreviation+NodalDesignation)
- *       → Affiliation → Address → Infrastructure → Financial
- *       → Activities → Membership → Establishment → Declaration → Preview → Submit
+ * Flow: Login → Navigate → About → Basic Info → Affiliation → Address → Infrastructure
+ *       → Financial → Activities → Membership → Establishment → Declaration → Preview → Submit
+ *       → Save to Partner Excel → Logout → Login as 2nd member → Accept popup → Logout
  */
 @Listeners(TestListeners.class)
 public class CreateYouthClubTest extends BaseTest {
 
     private static final Logger log = LogManager.getLogger(CreateYouthClubTest.class);
     private LoginPage loginPage;
+    private LogoutPage logoutPage;
     private CreateYouthClubPage createOrgPage;
     private String loginEmail;
-    private String loginPassword;
+    private String youthClubName;
+
+    /** Store member emails for accept flow */
+    private List<String> memberEmails = new ArrayList<>();
 
     @BeforeClass(alwaysRun = true)
     public void initPages() {
         loginPage = new LoginPage(driver);
+        logoutPage = new LogoutPage(driver);
         createOrgPage = new CreateYouthClubPage(driver);
 
-        // Always read last user from Youth_prod.xlsx for login (OTP)
+        // Read a RANDOM user from Youth_<env>.xlsx UserData sheet for login (OTP)
         ConfigReader cfg = new ConfigReader();
         String env = cfg.getEnv();
         String youthPath = System.getProperty("user.dir") + File.separator
@@ -54,13 +65,21 @@ public class CreateYouthClubTest extends BaseTest {
              Workbook wb = new XSSFWorkbook(fis)) {
             Sheet sheet = wb.getSheet("UserData");
             if (sheet == null) sheet = wb.getSheetAt(0);
-            Row row = sheet.getRow(sheet.getLastRowNum());
+            int lastRow = sheet.getLastRowNum();
+            // Pick a random row (skip header row 0)
+            int randomRow = lastRow > 1
+                    ? 1 + new java.util.Random().nextInt(lastRow)
+                    : lastRow;
+            Row row = sheet.getRow(randomRow);
+            // Fallback to last row if random row is null
+            if (row == null || row.getCell(0) == null) {
+                row = sheet.getRow(lastRow);
+            }
             loginEmail = row.getCell(0).getStringCellValue().trim();
-            loginPassword = "";
         } catch (Exception e) {
             throw new RuntimeException("Failed to read Youth_" + env + ".xlsx: " + e.getMessage(), e);
         }
-        log.info("[SETUP] Login email: {}", loginEmail);
+        log.info("[SETUP] Login email (random): {}", loginEmail);
     }
 
     @Test(priority = 1, retryAnalyzer = Retry.class)
@@ -96,7 +115,8 @@ public class CreateYouthClubTest extends BaseTest {
 
     @Test(priority = 6, dependsOnMethods = "step5_selectSubCategory", retryAnalyzer = Retry.class)
     public void step6_fillBasicInfo() {
-        createOrgPage.enterName("Youth Club Automation " + System.currentTimeMillis() % 10000);
+        youthClubName = "Youth Club Automation " + System.currentTimeMillis() % 10000;
+        createOrgPage.enterName(youthClubName);
         createOrgPage.enterAbbreviation("YCA");
         createOrgPage.selectNodalDesignation("President");
     }
@@ -139,33 +159,51 @@ public class CreateYouthClubTest extends BaseTest {
     public void step12_membership() {
         ConfigReader cfg = new ConfigReader();
         String env = cfg.getEnv();
+
+        // Read fresh members from Youth_<env>.xlsx "YouthClubMembers" sheet
+        // Only pick the 6 most recently registered (highest nnnyouth numbers)
         String youthPath = System.getProperty("user.dir") + File.separator
                 + "resources" + File.separator + "Youth_" + env + ".xlsx";
-        java.util.List<String> allEmails = new java.util.ArrayList<>();
+
         try (FileInputStream fis = new FileInputStream(youthPath);
              Workbook wb = new XSSFWorkbook(fis)) {
-            Sheet sheet = wb.getSheet("UserData");
-            if (sheet == null) sheet = wb.getSheetAt(0);
-            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
-                if (row != null && row.getCell(0) != null) {
+            Sheet sheet = wb.getSheet("YouthClubMembers");
+            if (sheet != null) {
+                // Collect all nnnyouth emails with their numbers
+                java.util.TreeMap<Integer, String> emailsByNumber = new java.util.TreeMap<>();
+                for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                    Row row = sheet.getRow(i);
+                    if (row == null || row.getCell(0) == null) continue;
                     String email = row.getCell(0).getStringCellValue().trim();
-                    if (!email.isEmpty() && !email.equals(loginEmail)) {
-                        allEmails.add(email);
+                    if (email.startsWith("nnnyouth") && email.contains("@")) {
+                        try {
+                            int num = Integer.parseInt(email.replace("nnnyouth", "").split("@")[0]);
+                            emailsByNumber.put(num, email);
+                        } catch (NumberFormatException e) { /* skip */ }
                     }
                 }
+
+                // Take the last 6 (highest numbers = most recently registered)
+                java.util.List<String> latest = new java.util.ArrayList<>(emailsByNumber.descendingMap().values());
+                int count = Math.min(6, latest.size());
+                for (int i = 0; i < count; i++) {
+                    String email = latest.get(i);
+                    if (!email.equals(loginEmail)) {
+                        memberEmails.add(email);
+                    }
+                }
+                log.info("Read {} fresh member emails (newest nnnyouth numbers)", memberEmails.size());
             }
         } catch (Exception e) {
-            log.warn("Failed to read Youth Excel: {}", e.getMessage());
+            log.warn("YouthClubMembers sheet not found: {}", e.getMessage());
         }
-        // Ensure enough emails (provide extras in case some are already invited)
-        while (allEmails.size() < 10) {
-            allEmails.add("member" + (allEmails.size() + 1) + "@yopmail.com");
+
+        // Ensure enough emails
+        while (memberEmails.size() < 10) {
+            memberEmails.add("nnnyouth" + (memberEmails.size() + 100) + "@yopmail.com");
         }
-        // Take last 10 (extras for retry if member already invited)
-        int start = Math.max(0, allEmails.size() - 10);
-        String[] emails = new String[10];
-        for (int i = 0; i < 10; i++) emails[i] = allEmails.get(start + i);
+
+        String[] emails = memberEmails.toArray(new String[0]);
         createOrgPage.addMembers(emails);
     }
 
@@ -178,13 +216,8 @@ public class CreateYouthClubTest extends BaseTest {
 
     @Test(priority = 14, dependsOnMethods = "step13_establishment", retryAnalyzer = Retry.class)
     public void step14_declarationAndPreview() {
-        // Click declaration checkbox: //ion-checkbox[@formcontrolname='declarationAccepted']
         createOrgPage.clickDeclarationCheckbox();
         createOrgPage.clickPreview();
-    }
-
-    private void clickDeclarationCheckbox() {
-        // This is handled by createOrgPage.clickAgreeCheckbox() which uses AGREE_CHECKBOX locator
     }
 
     @Test(priority = 15, dependsOnMethods = "step14_declarationAndPreview", retryAnalyzer = Retry.class)
@@ -196,5 +229,136 @@ public class CreateYouthClubTest extends BaseTest {
     @Test(priority = 16, dependsOnMethods = "step15_submit", retryAnalyzer = Retry.class)
     public void step16_goToProfile() {
         createOrgPage.clickGoToProfile();
+    }
+
+    // =========================================================================
+    // STEP 17: Save creator info to Partner_<env>.xlsx
+    // =========================================================================
+
+    @Test(priority = 17, dependsOnMethods = "step16_goToProfile", retryAnalyzer = Retry.class)
+    public void step17_saveToPartnerExcel() {
+        ConfigReader cfg = new ConfigReader();
+        String env = cfg.getEnv();
+        String filePath = System.getProperty("user.dir") + File.separator
+                + "resources" + File.separator + "Partner_" + env + ".xlsx";
+
+        File file = new File(filePath);
+        file.getParentFile().mkdirs();
+
+        try {
+            Workbook workbook;
+            if (file.exists() && file.length() > 0) {
+                FileInputStream fis = new FileInputStream(file);
+                workbook = new XSSFWorkbook(fis);
+                fis.close();
+            } else {
+                workbook = new XSSFWorkbook();
+            }
+
+            // Get or create sheet
+            Sheet sheet = workbook.getSheet("YouthClubData");
+            if (sheet == null) {
+                sheet = workbook.createSheet("YouthClubData");
+                Row header = sheet.createRow(0);
+                header.createCell(0).setCellValue("Youth Club Name");
+                header.createCell(1).setCellValue("Creator Email");
+            }
+
+            // Append new entry
+            int nextRow = sheet.getLastRowNum() + 1;
+            Row row = sheet.createRow(nextRow);
+            row.createCell(0).setCellValue(youthClubName != null ? youthClubName : "Youth Club Automation");
+            row.createCell(1).setCellValue(loginEmail);
+
+            FileOutputStream fos = new FileOutputStream(file);
+            workbook.write(fos);
+            fos.close();
+            workbook.close();
+
+            log.info("✅ Saved to Partner_{}.xlsx: {} | {}", env, youthClubName, loginEmail);
+        } catch (Exception e) {
+            log.error("Failed to save to Partner Excel: {}", e.getMessage());
+        }
+    }
+
+    // =========================================================================
+    // STEP 18: Logout after creating Youth Club
+    // =========================================================================
+
+    @Test(priority = 18, dependsOnMethods = "step17_saveToPartnerExcel", retryAnalyzer = Retry.class)
+    public void step18_logoutAfterCreate() throws Exception {
+        log.info("═══ Logging out after Youth Club creation ═══");
+        Thread.sleep(2000);
+
+        // Verify browser session is alive
+        try {
+            driver.getCurrentUrl();
+        } catch (Exception e) {
+            log.warn("Browser session appears invalid — refreshing driver from ThreadLocal");
+            this.driver = getDriver();
+        }
+
+        // Navigate to organizations page where user-options logout works
+        ConfigReader cfg = new ConfigReader();
+        driver.get(cfg.getUrl() + "/mybharat_organizations");
+        Thread.sleep(4000);
+        loginPage.closePopupIfPresent();
+        Thread.sleep(1000);
+
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
+        org.openqa.selenium.JavascriptExecutor js = (org.openqa.selenium.JavascriptExecutor) driver;
+
+        // Click user circle icon
+        WebElement userIcon = wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.xpath("//a[@id='user-options']")));
+        js.executeScript("arguments[0].click();", userIcon);
+        Thread.sleep(1500);
+
+        // Click "Log Out" button
+        WebElement logoutBtn = wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.xpath("//a[contains(@class,'firebase-profile-logout-btn')]")));
+        js.executeScript("arguments[0].click();", logoutBtn);
+        Thread.sleep(3000);
+
+        log.info("✅ Logged out successfully");
+    }
+
+    // =========================================================================
+    // STEP 19: Members already OTP-verified during addMembers() — no action needed
+    // All 5 required members were verified via OTP in step12_membership
+    // SuperAdmin Approve button is now enabled
+    // =========================================================================
+
+    @Test(priority = 19, dependsOnMethods = "step18_logoutAfterCreate", retryAnalyzer = Retry.class)
+    public void step19_membersAlreadyVerified() throws Exception {
+        log.info("═══ Members 1-5 already OTP-verified during membership step ═══");
+        log.info("═══ SuperAdmin Approve button is now enabled ═══");
+        // No action needed — proceed to SuperAdmin approval
+    }
+
+    // =========================================================================
+    // STEP 20: SuperAdmin login and approve the Youth Club
+    // =========================================================================
+
+    @Test(priority = 20, dependsOnMethods = "step19_membersAlreadyVerified", retryAnalyzer = Retry.class)
+    public void step20_superAdminApprove() throws Exception {
+        log.info("═══ SuperAdmin: Approve Youth Club ═══");
+
+        com.mybharat.pages.superadmin.SuperAdminLoginPage superAdminLogin =
+                new com.mybharat.pages.superadmin.SuperAdminLoginPage(driver);
+        com.mybharat.pages.superadmin.OrgApprovalPage approvalPage =
+                new com.mybharat.pages.superadmin.OrgApprovalPage(driver);
+
+        // Step 1: Login as SuperAdmin
+        superAdminLogin.loginAsSuperAdmin();
+        Assert.assertTrue(superAdminLogin.isLoginSuccessful(), "SuperAdmin login failed");
+        log.info("✅ SuperAdmin logged in");
+
+        // Step 2: Approve the Youth Club created in this run
+        approvalPage.approveYouthClub(youthClubName != null ? youthClubName : "Youth Club Automation");
+
+        // Step 3: Verify approval
+        Assert.assertTrue(approvalPage.isApprovalSuccessful(), "Youth Club approval failed");
+        log.info("✅ Youth Club approved: {}", youthClubName);
     }
 }

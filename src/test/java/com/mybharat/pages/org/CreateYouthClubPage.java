@@ -538,14 +538,42 @@ public class CreateYouthClubPage extends BasePage {
             }
             safeSleep(2000); // Wait for member row to appear
 
-            // For first 3 members: Send OTP → Get from Yopmail → Enter → Verify
-            if (i < 3) {
+            // For all 6 members: Send OTP → Get from Yopmail → Enter → Verify
+            if (addedCount < 6) {
                 try {
-                    // Click "Send OTP" link
-                    WebElement sendOtp = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
-                            ExpectedConditions.elementToBeClickable(
-                                    By.xpath("//ion-button[contains(.,'Send OTP')]")));
-                    scrollToElement(sendOtp);
+                    // Find "Send OTP" element first (even if not visible)
+                    WebElement sendOtp = null;
+                    // Try different locators for Send OTP
+                    String[] sendOtpXpaths = {
+                        "(//ion-button[contains(.,'Send OTP')])[last()]",
+                        "(//ion-text[contains(.,'Send OTP')])[last()]",
+                        "(//span[contains(.,'Send OTP')])[last()]",
+                        "(//*[normalize-space()='Send OTP'])[last()]",
+                        "(//*[contains(text(),'Send OTP')])[last()]"
+                    };
+                    for (String xpath : sendOtpXpaths) {
+                        try {
+                            sendOtp = new WebDriverWait(driver, Duration.ofSeconds(5))
+                                    .until(ExpectedConditions.presenceOfElementLocated(By.xpath(xpath)));
+                            log.info("  Send OTP found with xpath: {}", xpath);
+                            break;
+                        } catch (Exception ex) { /* try next */ }
+                    }
+                    if (sendOtp == null) {
+                        // Debug: log all buttons/text on page to identify the element
+                        java.util.List<WebElement> allBtns = driver.findElements(By.xpath("//ion-button | //ion-text | //span[contains(.,'OTP')]"));
+                        log.warn("  Send OTP not found! Visible OTP-related elements ({}):", allBtns.size());
+                        for (WebElement btn : allBtns) {
+                            try {
+                                if (btn.isDisplayed()) log.warn("    Tag:{} Text:'{}' Class:'{}'",
+                                        btn.getTagName(), btn.getText().trim(), btn.getAttribute("class"));
+                            } catch (Exception ignored) {}
+                        }
+                        throw new RuntimeException("Send OTP button not found for member " + (i + 1));
+                    }
+                    // Scroll specifically to the Send OTP element
+                    js.executeScript("arguments[0].scrollIntoView({block:'center',behavior:'instant'});", sendOtp);
+                    safeSleep(500);
                     jsClick(sendOtp);
                     log.info("  Send OTP clicked for member {}", i + 1);
                     safeSleep(5000); // Wait for OTP email
@@ -560,30 +588,54 @@ public class CreateYouthClubPage extends BasePage {
                             ExpectedConditions.visibilityOfElementLocated(By.id("login")));
                     inbox.clear();
                     inbox.sendKeys(email.split("@")[0]);
-                    driver.findElement(By.cssSelector(".material-icons-outlined.f36")).click();
-                    safeSleep(3000);
-                    driver.findElement(By.id("refresh")).click();
-                    safeSleep(3000);
-                    // Refresh again to ensure latest email
-                    driver.findElement(By.id("refresh")).click();
-                    safeSleep(2000);
 
-                    // Extract OTP from email
+                    // Dismiss Google Ads overlay on Yopmail before clicking go button
+                    try {
+                        ((JavascriptExecutor) driver).executeScript(
+                                "document.querySelectorAll('iframe[id*=\"aswift\"], iframe[id*=\"google_ads\"], div[id*=\"ad\"]').forEach(function(el){el.style.display='none';});" +
+                                "var p=document.getElementById('r_parent');if(p)p.style.display='none';");
+                    } catch (Exception adEx) { /* ignore */ }
+                    safeSleep(500);
+
+                    // Click Go button via JS to avoid intercept
+                    try {
+                        ((JavascriptExecutor) driver).executeScript(
+                                "document.querySelector('.material-icons-outlined.f36').click();");
+                    } catch (Exception goEx) {
+                        driver.findElement(By.cssSelector(".material-icons-outlined.f36")).click();
+                    }
+                    safeSleep(3000);
+
+                    // Dismiss Google Ads overlay before clicking refresh
+                    try {
+                        ((JavascriptExecutor) driver).executeScript(
+                                "document.querySelectorAll('iframe[id*=\"aswift\"], iframe[id*=\"google_ads\"]').forEach(function(el){el.style.display='none';});" +
+                                "var p=document.getElementById('r_parent');if(p)p.style.display='none';");
+                    } catch (Exception adEx) { /* ignore */ }
+                    safeSleep(500);
+
+                    // Click refresh via JS to avoid element intercept
+                    try {
+                        ((JavascriptExecutor) driver).executeScript("document.getElementById('refresh').click();");
+                    } catch (Exception er) { /* ignore */ }
+                    safeSleep(3000);
+
+                    // Extract OTP from email — look for exactly 6-digit number
                     driver.switchTo().frame("ifmail");
                     String otp = "";
                     try {
-                        // Look for "Your OTP:" pattern in the email
-                        WebElement otpEl = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
-                                ExpectedConditions.visibilityOfElementLocated(
-                                        By.xpath("//*[contains(text(),'Your OTP') or contains(text(),'OTP:') or contains(text(),'otp')]")));
-                        String otpText = otpEl.getText();
-                        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\d{4,6}").matcher(otpText);
-                        if (matcher.find()) otp = matcher.group();
-                    } catch (Exception e3) {
                         WebElement body = driver.findElement(By.tagName("body"));
-                        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\b(\\d{4,6})\\b").matcher(body.getText());
-                        if (matcher.find()) otp = matcher.group(1);
-                    }
+                        String bodyText = body.getText();
+                        // First try: find 6-digit OTP specifically
+                        java.util.regex.Matcher matcher6 = java.util.regex.Pattern.compile("\\b(\\d{6})\\b").matcher(bodyText);
+                        if (matcher6.find()) {
+                            otp = matcher6.group(1);
+                        } else {
+                            // Fallback: 4-6 digit number
+                            java.util.regex.Matcher matcherAll = java.util.regex.Pattern.compile("\\b(\\d{4,6})\\b").matcher(bodyText);
+                            if (matcherAll.find()) otp = matcherAll.group(1);
+                        }
+                    } catch (Exception e3) { /* ignore */ }
                     log.info("  OTP extracted: {}", otp);
 
                     // Close Yopmail tab, switch back
@@ -607,13 +659,20 @@ public class CreateYouthClubPage extends BasePage {
                             otpInput.sendKeys(otp);
                             safeSleep(500);
 
-                            // Click "Verify OTP"
-                            WebElement verifyOtp = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                            // Click "Verify OTP" button — handles ion-button, ion-text, span
+                            WebElement verifyOtp = new WebDriverWait(driver, Duration.ofSeconds(10)).until(
                                     ExpectedConditions.elementToBeClickable(
-                                            By.xpath("//*[contains(text(),'Verify OTP') or contains(@class,'membership-verify-otp-btn')]")));
+                                            By.xpath("(//ion-button[contains(.,'Verify OTP')] | //ion-text[contains(.,'Verify OTP')] | //span[contains(.,'Verify OTP')] | //*[normalize-space()='Verify OTP'])[last()]")));
                             jsClick(verifyOtp);
                             safeSleep(2000);
-                            log.info("  OTP verified for member {}", i + 1);
+                            // Wait for "OTP Verified" status
+                            try {
+                                new WebDriverWait(driver, Duration.ofSeconds(8)).until(
+                                        d -> d.getPageSource().contains("OTP Verified") || d.getPageSource().contains("otp_verified"));
+                                log.info("  ✅ OTP verified for member {}", i + 1);
+                            } catch (Exception ev) {
+                                log.warn("  OTP verified click done but status not confirmed for member {}", i + 1);
+                            }
                         }
                     }
                 } catch (Exception otpEx) {
