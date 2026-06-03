@@ -231,23 +231,14 @@ public class VOEventCreatePage extends BasePage {
      * Get N different image paths from UploadImages folder (each >= 50KB).
      */
     private List<String> getDifferentImagePaths(int count) {
-        File imagesDir = Paths.get(System.getProperty("user.dir"), "UploadImages").toFile();
-        if (!imagesDir.exists()) throw new RuntimeException("UploadImages folder not found");
-        File[] files = imagesDir.listFiles((dir, name) -> name.toLowerCase().matches(".*\\.(jpg|png|jpeg)"));
-        if (files == null || files.length == 0) throw new RuntimeException("No images found");
-
-        List<File> validFiles = new java.util.ArrayList<>();
-        for (File f : files) {
-            if (f.length() >= 50 * 1024) validFiles.add(f);
-        }
-        if (validFiles.isEmpty()) {
-            for (File f : files) validFiles.add(f);
-        }
-
+        String baseDir = System.getProperty("user.dir") + java.io.File.separator + "UploadImages";
         List<String> paths = new java.util.ArrayList<>();
-        for (int i = 0; i < count; i++) {
-            paths.add(validFiles.get(i % validFiles.size()).getAbsolutePath());
+        // Always use event1.jpeg for logo and event2.jpg for banner
+        paths.add(baseDir + java.io.File.separator + "event1.jpeg");
+        if (count > 1) {
+            paths.add(baseDir + java.io.File.separator + "event2.jpg");
         }
+        log.info("Using fixed event images: event1.jpeg, event2.jpg");
         return paths;
     }
 
