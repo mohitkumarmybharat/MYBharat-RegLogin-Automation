@@ -1173,41 +1173,19 @@ public class YouthProfilePage extends BasePage {
     }
 
     /**
-     * Get a random image path from the UploadImages folder.
-     * Only returns images >= 50KB (app requirement).
+     * Get profile image path — always uses Userpic.jpeg for consistency.
      */
     private String getRandomImagePath() {
-        File imagesDir = Paths.get(System.getProperty("user.dir"), "UploadImages").toFile();
-        if (!imagesDir.exists()) {
-            throw new RuntimeException("UploadImages folder not found at: " + imagesDir.getAbsolutePath());
+        File imageFile = Paths.get(System.getProperty("user.dir"), "UploadImages", "Userpic.jpeg").toFile();
+        if (!imageFile.exists()) {
+            // Fallback: try Userpic.jpg
+            imageFile = Paths.get(System.getProperty("user.dir"), "UploadImages", "Userpic.jpg").toFile();
         }
-        File[] files = imagesDir.listFiles((dir, name) ->
-                name.toLowerCase().matches(".*\\.(jpg|png|jpeg)"));
-        if (files == null || files.length == 0) {
-            throw new RuntimeException("No images found in: " + imagesDir.getAbsolutePath());
+        if (!imageFile.exists()) {
+            throw new RuntimeException("Userpic.jpeg not found in UploadImages folder");
         }
-
-        // Filter for files >= 50KB (app requires minimum 50KB)
-        List<File> validFiles = new java.util.ArrayList<>();
-        for (File f : files) {
-            if (f.length() >= 50 * 1024) { // 50KB minimum
-                validFiles.add(f);
-            }
-        }
-
-        if (validFiles.isEmpty()) {
-            // Fallback: use largest available file
-            File largest = files[0];
-            for (File f : files) {
-                if (f.length() > largest.length()) largest = f;
-            }
-            log.warn("No images >= 50KB found, using largest: {} ({}KB)", largest.getName(), largest.length() / 1024);
-            return largest.getAbsolutePath();
-        }
-
-        File randomFile = validFiles.get(random.nextInt(validFiles.size()));
-        log.info("Selected image: {} ({}KB)", randomFile.getName(), randomFile.length() / 1024);
-        return randomFile.getAbsolutePath();
+        log.info("Selected image: {} ({}KB)", imageFile.getName(), imageFile.length() / 1024);
+        return imageFile.getAbsolutePath();
     }
 
     /**
