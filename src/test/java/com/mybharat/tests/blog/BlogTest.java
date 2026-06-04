@@ -26,12 +26,17 @@ import com.mybharat.pages.blog.BlogPage;
  *   1. writeAndPublishBlog() — Navigate to Blogs → Write a Blog → Fill form → Preview → Post
  *   2. verifyBlogInMyBlogs() — Check that the blog appears with "Pending" status
  *
- * Admin Flow (commented out, for future use):
+ * Admin Flow (Beta ONLY — skipped on Prod via SkipException):
  *   3. adminApprovesBlog()         — Admin logs in and approves the blog
  *   4. verifyBlogApproved()        — Youth verifies status changed to Approved
  *   5. verifyBlogVisibleOnPublicPage() — Published blog visible publicly
  *   6. adminUnpublishesBlog()      — Admin unpublishes the blog
  *   7. verifyBlogUnpublished()     — Youth verifies Unpublished status
+ *   8. verifyBlogRemovedFromPublicPage() — Blog no longer visible publicly
+ *
+ * Environment Behavior:
+ *   - Prod (-Denv=prod): Only tests 1-2 run (create + verify Pending). Tests 3-8 are SKIPPED.
+ *   - Beta (-Denv=beta): All tests 1-8 run (full admin approve/unpublish flow).
  *
  * Run:
  *   mvn test -Denv=beta -Dbrowser=chrome -Dsurefire.suiteXmlFiles=testSuites/testng-youth.xml
@@ -98,13 +103,23 @@ public class BlogTest extends BaseTest {
     }
 
     // =========================================================================
-    // ADMIN/VERIFIER FLOW — Commented out (to be enabled when admin flow is ready)
+    // ADMIN/VERIFIER FLOW — Runs ONLY on Beta environment
+    // On Prod: Tests 1-2 run (create blog + verify Pending status)
+    // On Beta: Full flow runs (create → verify → admin approve → verify approved
+    //          → verify public → admin unpublish → verify unpublished → verify removed)
     // =========================================================================
 
-    /*
+    private boolean isBeta() {
+        return "beta".equalsIgnoreCase(System.getProperty("env", "beta"));
+    }
+
     @Test(priority = 3, groups = {"regression", "blog"}, dependsOnMethods = "verifyBlogInMyBlogs",
-          description = "Admin approves the blog: Open admin window → Login → Newsletter & Blogs → Approve")
+          description = "Admin approves the blog: Open admin window → Login → Newsletter & Blogs → Approve (Beta only)")
     public void adminApprovesBlog() throws Exception {
+        if (!isBeta()) {
+            log.info("⏭ Skipping adminApprovesBlog — runs only on Beta environment");
+            throw new org.testng.SkipException("Admin flow skipped on prod environment");
+        }
         log.info("Starting: Admin Approves Blog");
 
         // Open new window for admin
@@ -123,8 +138,12 @@ public class BlogTest extends BaseTest {
     }
 
     @Test(priority = 4, groups = {"regression", "blog"}, dependsOnMethods = "adminApprovesBlog",
-          description = "Verify blog status changed to Approved/Published in youth My Blogs")
+          description = "Verify blog status changed to Approved/Published in youth My Blogs (Beta only)")
     public void verifyBlogApproved() throws Exception {
+        if (!isBeta()) {
+            log.info("⏭ Skipping verifyBlogApproved — runs only on Beta environment");
+            throw new org.testng.SkipException("Admin flow skipped on prod environment");
+        }
         log.info("Starting: Verify Blog Approved");
 
         // Logout admin, login as youth via OTP
@@ -151,8 +170,12 @@ public class BlogTest extends BaseTest {
     }
 
     @Test(priority = 5, groups = {"regression", "blog"}, dependsOnMethods = "verifyBlogApproved",
-          description = "Verify published blog is visible on public blogs listing page")
+          description = "Verify published blog is visible on public blogs listing page (Beta only)")
     public void verifyBlogVisibleOnPublicPage() throws Exception {
+        if (!isBeta()) {
+            log.info("⏭ Skipping verifyBlogVisibleOnPublicPage — runs only on Beta environment");
+            throw new org.testng.SkipException("Admin flow skipped on prod environment");
+        }
         log.info("Starting: Verify Blog Visible on Public Page");
 
         boolean visible = blogPage.isBlogVisibleOnPublicPage();
@@ -161,8 +184,12 @@ public class BlogTest extends BaseTest {
     }
 
     @Test(priority = 6, groups = {"regression", "blog"}, dependsOnMethods = "verifyBlogVisibleOnPublicPage",
-          description = "Admin unpublishes the blog")
+          description = "Admin unpublishes the blog (Beta only)")
     public void adminUnpublishesBlog() throws Exception {
+        if (!isBeta()) {
+            log.info("⏭ Skipping adminUnpublishesBlog — runs only on Beta environment");
+            throw new org.testng.SkipException("Admin flow skipped on prod environment");
+        }
         log.info("Starting: Admin Unpublishes Blog");
 
         // Logout youth, login as admin
@@ -178,8 +205,12 @@ public class BlogTest extends BaseTest {
     }
 
     @Test(priority = 7, groups = {"regression", "blog"}, dependsOnMethods = "adminUnpublishesBlog",
-          description = "Verify blog status changed to Unpublished in youth My Blogs")
+          description = "Verify blog status changed to Unpublished in youth My Blogs (Beta only)")
     public void verifyBlogUnpublished() throws Exception {
+        if (!isBeta()) {
+            log.info("⏭ Skipping verifyBlogUnpublished — runs only on Beta environment");
+            throw new org.testng.SkipException("Admin flow skipped on prod environment");
+        }
         log.info("Starting: Verify Blog Unpublished");
 
         // Logout admin, login as youth
@@ -200,19 +231,24 @@ public class BlogTest extends BaseTest {
         // Navigate to My Blogs and check status
         blogPage.verifyBlogInMyBlogs();
         String status = blogPage.getBlogStatus();
-        Assert.assertTrue(status.contains("Unpublished") || status.contains("Unpublish"),
-                "Blog status should be Unpublished but was: " + status);
+        // After unpublish, blog may show "Unpublished" status OR be removed from list entirely
+        Assert.assertTrue(
+                status.contains("Unpublished") || status.contains("Unpublish") || status.equals("Unknown"),
+                "Blog status should be Unpublished or removed from list but was: " + status);
         log.info("✅ Blog status verified: {}", status);
     }
 
     @Test(priority = 8, groups = {"regression", "blog"}, dependsOnMethods = "verifyBlogUnpublished",
-          description = "Verify unpublished blog is removed from public blogs listing page")
+          description = "Verify unpublished blog is removed from public blogs listing page (Beta only)")
     public void verifyBlogRemovedFromPublicPage() throws Exception {
+        if (!isBeta()) {
+            log.info("⏭ Skipping verifyBlogRemovedFromPublicPage — runs only on Beta environment");
+            throw new org.testng.SkipException("Admin flow skipped on prod environment");
+        }
         log.info("Starting: Verify Blog Removed from Public Page");
 
         boolean visible = blogPage.isBlogVisibleOnPublicPage();
         Assert.assertFalse(visible, "Unpublished blog should NOT be visible on public blogs page");
         log.info("✅ Blog removed from public page after unpublish");
     }
-    */
 }
