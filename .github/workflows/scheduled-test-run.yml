@@ -34,21 +34,45 @@ jobs:
         id: parse
         if: always()
         run: |
-          # Total = 12 modules displayed in the report table
-          TOTAL=12
-          echo "total=${TOTAL}" >> $GITHUB_OUTPUT
-          echo "passed=0" >> $GITHUB_OUTPUT
-          echo "failed=0" >> $GITHUB_OUTPUT
-          echo "skipped=0" >> $GITHUB_OUTPUT
+          REPORT_FILE="target/surefire-reports/testng-results.xml"
+          if [ -f "$REPORT_FILE" ]; then
+            LINE=$(head -3 "$REPORT_FILE" | tr ' ' '\n')
+            PASSED=$(echo "$LINE" | sed -n 's/.*passed="\([0-9]*\)".*/\1/p')
+            FAILED=$(echo "$LINE" | sed -n 's/.*failed="\([0-9]*\)".*/\1/p')
+            SKIPPED=$(echo "$LINE" | sed -n 's/.*skipped="\([0-9]*\)".*/\1/p')
+            TOTAL=$((${PASSED:-0} + ${FAILED:-0}))
+            # Adjust count to match email table rows (verifyUserInDatabase is bundled with Registration)
+            TOTAL=$((TOTAL - 1))
+            PASSED=$((${PASSED:-0} - 1))
+          else
+            TOTAL="N/A"
+            PASSED="N/A"
+            FAILED="N/A"
+            SKIPPED="N/A"
+          fi
+          echo "total=${TOTAL:-0}" >> $GITHUB_OUTPUT
+          echo "passed=${PASSED:-0}" >> $GITHUB_OUTPUT
+          echo "failed=${FAILED:-0}" >> $GITHUB_OUTPUT
+          echo "skipped=${SKIPPED:-0}" >> $GITHUB_OUTPUT
 
       - name: Determine test result
         id: result
         if: always()
         run: |
-          # Will be finalized after details step
-          echo "status=PENDING" >> $GITHUB_OUTPUT
-          echo "emoji=⏳" >> $GITHUB_OUTPUT
-          echo "color=#ffc107" >> $GITHUB_OUTPUT
+          FAILED="${{ steps.parse.outputs.failed }}"
+          if [ "$FAILED" == "0" ] || [ "$FAILED" == "N/A" ] && [ "${{ steps.test_run.outcome }}" == "success" ]; then
+            echo "status=ALL TESTS PASSED" >> $GITHUB_OUTPUT
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+            echo "color=#28a745" >> $GITHUB_OUTPUT
+          elif [ "$FAILED" == "0" ]; then
+            echo "status=ALL TESTS PASSED" >> $GITHUB_OUTPUT
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+            echo "color=#28a745" >> $GITHUB_OUTPUT
+          else
+            echo "status=SOME TESTS FAILED" >> $GITHUB_OUTPUT
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+            echo "color=#dc3545" >> $GITHUB_OUTPUT
+          fi
           echo "timestamp=$(TZ='Asia/Kolkata' date +'%d-%b-%Y %I:%M %p IST')" >> $GITHUB_OUTPUT
 
       - name: Extract test details
@@ -94,8 +118,6 @@ jobs:
           echo "s7=$(get_status 'clickBasicInfoAndExtractEmail')" >> $GITHUB_OUTPUT
           echo "s8=$(get_status 'attemptCompetitiveQuiz')" >> $GITHUB_OUTPUT
           echo "s9=$(get_status 'verifyQuizCertificateDownload')" >> $GITHUB_OUTPUT
-
-          # Blog
           echo "s10=$(get_status 'writeAndPublishBlog')" >> $GITHUB_OUTPUT
 
           # VO Full Cycle
@@ -112,7 +134,7 @@ jobs:
           echo "s21=$(get_status 'reviewAndEditEvent')" >> $GITHUB_OUTPUT
           echo "s22=$(get_status 'editEventAndSaveAsDraft')" >> $GITHUB_OUTPUT
 
-          # VO combined status — FAIL if any VO test failed
+          # VO combined status
           VO_STATUS="✅ PASS"
           for vs in s11 s12 s13 s14 s15 s16 s17 s18 s19 s20 s21 s22; do
             val=$(eval echo "\$$vs")
@@ -122,51 +144,6 @@ jobs:
             fi
           done
           echo "vo_status=$VO_STATUS" >> $GITHUB_OUTPUT
-
-      - name: Calculate final counts
-        id: final
-        if: always()
-        run: |
-          PASSED=0
-          FAILED=0
-          SKIPPED=0
-          for status in \
-            "${{ steps.details.outputs.s0 }}" \
-            "${{ steps.details.outputs.s1 }}" \
-            "${{ steps.details.outputs.s2 }}" \
-            "${{ steps.details.outputs.s3 }}" \
-            "${{ steps.details.outputs.s4 }}" \
-            "${{ steps.details.outputs.s5 }}" \
-            "${{ steps.details.outputs.s6 }}" \
-            "${{ steps.details.outputs.s7 }}" \
-            "${{ steps.details.outputs.s8 }}" \
-            "${{ steps.details.outputs.s9 }}" \
-            "${{ steps.details.outputs.s10 }}" \
-            "${{ steps.details.outputs.vo_status }}"; do
-            if echo "$status" | grep -q "PASS"; then
-              PASSED=$((PASSED + 1))
-            elif echo "$status" | grep -q "FAIL"; then
-              FAILED=$((FAILED + 1))
-            else
-              SKIPPED=$((SKIPPED + 1))
-            fi
-          done
-          TOTAL=12
-          echo "total=${TOTAL}" >> $GITHUB_OUTPUT
-          echo "passed=${PASSED}" >> $GITHUB_OUTPUT
-          echo "failed=${FAILED}" >> $GITHUB_OUTPUT
-          echo "skipped=${SKIPPED}" >> $GITHUB_OUTPUT
-
-          if [ "$FAILED" -eq 0 ]; then
-            echo "status=ALL TESTS PASSED" >> $GITHUB_OUTPUT
-            echo "emoji=✅" >> $GITHUB_OUTPUT
-            echo "color=#28a745" >> $GITHUB_OUTPUT
-          else
-            echo "status=SOME TESTS FAILED" >> $GITHUB_OUTPUT
-            echo "emoji=❌" >> $GITHUB_OUTPUT
-            echo "color=#dc3545" >> $GITHUB_OUTPUT
-          fi
-          echo "timestamp=$(TZ='Asia/Kolkata' date +'%d-%b-%Y %I:%M %p IST')" >> $GITHUB_OUTPUT
 
       - name: Upload ExtentReport as artifact
         if: always()
@@ -204,7 +181,7 @@ jobs:
           secure: true
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "${{ steps.final.outputs.emoji }} MY Bharat Daily Report | ${{ steps.final.outputs.status }} | ${{ steps.final.outputs.timestamp }}"
+          subject: "${{ steps.result.outputs.emoji }} MY Bharat Daily Report | ${{ steps.result.outputs.status }} | ${{ steps.result.outputs.timestamp }}"
           to: ${{ secrets.SENIOR_EMAILS }}
           from: "MY Bharat QA <${{ secrets.SMTP_USERNAME }}>"
           html_body: |
@@ -216,8 +193,8 @@ jobs:
               </div>
 
               <!-- Status Banner -->
-              <div style="background: ${{ steps.final.outputs.color }}; padding: 14px; text-align: center;">
-                <h2 style="color: #fff; margin: 0; font-size: 20px;">${{ steps.final.outputs.emoji }} ${{ steps.final.outputs.status }}</h2>
+              <div style="background: ${{ steps.result.outputs.color }}; padding: 14px; text-align: center;">
+                <h2 style="color: #fff; margin: 0; font-size: 20px;">${{ steps.result.outputs.emoji }} ${{ steps.result.outputs.status }}</h2>
               </div>
 
               <div style="padding: 25px; border: 1px solid #e0e0e0; border-top: none;">
@@ -225,7 +202,7 @@ jobs:
                 <!-- Execution Info -->
                 <h3 style="color: #160363; margin: 0 0 12px; border-bottom: 2px solid #160363; padding-bottom: 5px;">Execution Details</h3>
                 <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                  <tr><td style="padding: 8px; font-weight: bold; width: 40%;">Execution Time:</td><td style="padding: 8px;">${{ steps.final.outputs.timestamp }}</td></tr>
+                  <tr><td style="padding: 8px; font-weight: bold; width: 40%;">Execution Time:</td><td style="padding: 8px;">${{ steps.result.outputs.timestamp }}</td></tr>
                   <tr style="background:#f9f9f9;"><td style="padding: 8px; font-weight: bold;">Environment:</td><td style="padding: 8px;">Production (https://mybharat.gov.in)</td></tr>
                   <tr><td style="padding: 8px; font-weight: bold;">Browser:</td><td style="padding: 8px;">Google Chrome (UI Mode)</td></tr>
                   <tr style="background:#f9f9f9;"><td style="padding: 8px; font-weight: bold;">Test Suite:</td><td style="padding: 8px;">All Modules — Full End-to-End</td></tr>
@@ -239,10 +216,10 @@ jobs:
                     <th style="padding: 10px;">Total Tests</th><th style="padding: 10px;">Passed</th><th style="padding: 10px;">Failed</th><th style="padding: 10px;">Skipped</th>
                   </tr>
                   <tr style="font-size: 20px; font-weight: bold;">
-                    <td style="padding: 12px; border: 1px solid #ddd;">${{ steps.final.outputs.total }}</td>
-                    <td style="padding: 12px; border: 1px solid #ddd; color: #28a745;">${{ steps.final.outputs.passed }}</td>
-                    <td style="padding: 12px; border: 1px solid #ddd; color: #dc3545;">${{ steps.final.outputs.failed }}</td>
-                    <td style="padding: 12px; border: 1px solid #ddd; color: #ffc107;">${{ steps.final.outputs.skipped }}</td>
+                    <td style="padding: 12px; border: 1px solid #ddd;">${{ steps.parse.outputs.total }}</td>
+                    <td style="padding: 12px; border: 1px solid #ddd; color: #28a745;">${{ steps.parse.outputs.passed }}</td>
+                    <td style="padding: 12px; border: 1px solid #ddd; color: #dc3545;">${{ steps.parse.outputs.failed }}</td>
+                    <td style="padding: 12px; border: 1px solid #ddd; color: #ffc107;">${{ steps.parse.outputs.skipped }}</td>
                   </tr>
                 </table>
 
@@ -256,7 +233,7 @@ jobs:
                     <th style="padding: 6px; text-align: left;">Description</th>
                     <th style="padding: 6px;">Device</th>
                     <th style="padding: 6px;">Status</th>
-                    <th style="padding: 6px; text-align: left;">Developer</th>
+                    <th style="padding: 6px; text-align: left;">Team Lead</th>
                   </tr>
                   <tr style="background: #f9f9f9;">
                     <td style="padding: 6px; border: 1px solid #eee; text-align: center;">1</td>
@@ -371,7 +348,7 @@ jobs:
                 <!-- Test Flow -->
                 <h3 style="color: #160363; margin: 0 0 12px; border-bottom: 2px solid #160363; padding-bottom: 5px;">Test Flow</h3>
                 <p style="font-size: 13px; color: #555; line-height: 1.8;">
-                  Public Pages → Registration → Logout → Login (OTP) → Profile → Certificate → Basic Info → Quiz → Quiz Certificate → Blog → VO Full Cycle
+                  Public Pages (Header + Org + Footer) → Registration (new user) → Logout → Login (OTP) → Complete Profile → Download Certificate → Verify Basic Info → Play Quiz → Quiz Certificate → Blog → VO Full Cycle
                 </p>
 
                 <!-- View Report Button -->
