@@ -98,23 +98,28 @@ public class BlogAdminPage extends BasePage {
         // Navigate to home
         driver.get(adminUrl);
         waitForPageLoad();
-        Thread.sleep(500);
+        Thread.sleep(1000);
 
-        // Close popup if present
-        try {
-            WebElement popup = driver.findElement(By.xpath("//i[@class='fa fa-times']"));
-            if (popup.isDisplayed()) popup.click();
-        } catch (Exception e) { /* no popup */ }
+        // Close popup if present (may appear multiple times)
+        for (int i = 0; i < 3; i++) {
+            try {
+                WebElement popup = new WebDriverWait(driver, Duration.ofSeconds(3)).until(
+                        ExpectedConditions.elementToBeClickable(By.xpath(
+                                "//i[@class='fa fa-times'] | //button[contains(@class,'btn-close')] | //button[normalize-space()='OK'] | //button[normalize-space()='Close']")));
+                jsClick(popup);
+                Thread.sleep(500);
+            } catch (Exception e) { break; }
+        }
 
         // Click Sign In
         WebElement signIn = longWait.until(ExpectedConditions.elementToBeClickable(SIGN_IN_BUTTON));
         jsClick(signIn);
-        Thread.sleep(500);
+        Thread.sleep(1000);
 
         // Click Login with Password
         WebElement loginWithPwd = longWait.until(ExpectedConditions.elementToBeClickable(LOGIN_WITH_PASSWORD));
         jsClick(loginWithPwd);
-        Thread.sleep(500);
+        Thread.sleep(1000);
 
         // Enter credentials
         WebElement usernameInput = longWait.until(ExpectedConditions.visibilityOfElementLocated(USERNAME_INPUT));
