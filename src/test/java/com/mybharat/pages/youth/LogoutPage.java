@@ -13,23 +13,43 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import com.mybharat.pages.BasePage;
 
 /**
- * LogoutPage - Handles user logout across all portal contexts.
- * 
- * Supports:
- *   1. Youth React profile — rounded-full button → menuitem "Logout"
- *   2. ELP/Org admin portal — avatar/name click → dropdown with "Logout" text
- *   3. Homepage — "Welcome [name]" circle → dropdown with "Log Out"
- * 
- * Can be reused after any flow that requires logging out.
+ * LogoutPage - Page Object for the user logout functionality.
+ *
+ * Purpose: Handles user session termination by interacting with the user menu
+ *          and clicking the logout button. Includes retry logic for flaky UI interactions.
+ *
+ * Flow:
+ *   1. Wait for page stability (2s delay)
+ *   2. openUserMenu()     — clicks the circular profile/avatar button
+ *   3. clickLogoutButton() — clicks the logout menu item
+ *   4. waitForPageLoad()  — waits for redirect to home page
+ *
+ * Key Methods:
+ *   - logout() — performs the complete logout sequence
+ *
+ * Usage: Called after registration, profile completion, or any flow
+ *        that needs the user to be logged out before the next step.
+ *
+ * Dependencies: BasePage (parent), Selenium WebDriverWait
+ * Developer: Nishant Sharma (QA Team)
+ *
+ * @see LogoutTest
+ * @see LoginPage
  */
 public class LogoutPage extends BasePage {
 
     private static final Logger log = LogManager.getLogger(LogoutPage.class);
+
     private WebDriverWait longWait;
+
+    // Locators
+    private static final By USER_MENU_BUTTON = By.xpath(
+            "//button[@class='flex items-center rounded-full cursor-pointer']");
+    private static final By LOGOUT_BUTTON = By.xpath("//button[@role='menuitem']");
 
     public LogoutPage(WebDriver driver) {
         super(driver);
-        this.longWait = new WebDriverWait(driver, Duration.ofSeconds(15));
+        this.longWait = new WebDriverWait(driver, Duration.ofSeconds(20));
     }
 
     /**
@@ -41,7 +61,7 @@ public class LogoutPage extends BasePage {
 
         openUserMenu();
         Thread.sleep(1000);
-        clickLogout();
+        clickLogoutButton();
 
         waitForPageLoad();
         Thread.sleep(3000);
@@ -49,84 +69,36 @@ public class LogoutPage extends BasePage {
     }
 
     /**
-     * Open the user menu/avatar dropdown — tries multiple strategies.
+     * Open the user profile/avatar menu.
      */
-    private void openUserMenu() throws InterruptedException {
-        // Strategy 1: ELP/Org admin portal — avatar with "Welcome" or user name
+    private void openUserMenu() {
         try {
-            WebElement avatar = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
-                    ExpectedConditions.elementToBeClickable(By.xpath(
-                            "//img[contains(@class,'avatar') or contains(@class,'profile')] | " +
-                            "//*[contains(@class,'user-avatar')] | " +
-                            "//span[contains(@class,'welcome')] | " +
-                            "//*[contains(text(),'Welcome')]/ancestor::*[self::a or self::button or self::div][contains(@class,'cursor') or contains(@class,'click') or @role] | " +
-                            "//nav//*[contains(@class,'rounded-circle') or contains(@class,'avatar')]")));
-            scrollToElement(avatar);
-            Thread.sleep(300);
-            try { avatar.click(); } catch (Exception e) { jsClick(avatar); }
-            log.info("Opened user menu (avatar/welcome)");
-            return;
-        } catch (Exception e) {
-            log.info("Avatar/welcome not found, trying other strategies...");
-        }
-
-        // Strategy 2: Youth React profile — rounded-full button
-        try {
-            WebElement menu = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
-                    ExpectedConditions.elementToBeClickable(By.xpath(
-                            "//button[contains(@class,'rounded-full')] | " +
-                            "//button[contains(@class,'flex') and contains(@class,'items-center') and contains(@class,'rounded')]")));
+            WebElement menu = longWait.until(ExpectedConditions.elementToBeClickable(USER_MENU_BUTTON));
             scrollToElement(menu);
-            Thread.sleep(300);
-            try { menu.click(); } catch (Exception e) { jsClick(menu); }
-            log.info("Opened user menu (rounded-full button)");
-            return;
+            Thread.sleep(500);
+            jsClick(menu);
+            log.info("Opened user menu");
         } catch (Exception e) {
-            log.info("Rounded-full button not found, trying fallback...");
-        }
-
-        // Strategy 3: Any clickable element in top-right nav that looks like a user menu
-        try {
-            WebElement menu = longWait.until(ExpectedConditions.elementToBeClickable(By.xpath(
-                    "//nav//button[last()] | " +
-                    "//header//*[contains(@class,'user') or contains(@class,'profile') or contains(@class,'avatar')]")));
-            try { menu.click(); } catch (Exception e) { jsClick(menu); }
-            log.info("Opened user menu (fallback)");
-        } catch (Exception e) {
-            log.error("Could not find user menu to open");
-            throw new RuntimeException("User menu not found for logout", e);
+            log.warn("First attempt to open menu failed, retrying...");
+            WebElement menu = longWait.until(ExpectedConditions.elementToBeClickable(USER_MENU_BUTTON));
+            jsClick(menu);
+            log.info("Opened user menu (retry)");
         }
     }
 
     /**
-     * Click the logout option from the dropdown — tries multiple locators.
+     * Click the logout menu item.
      */
-    private void clickLogout() throws InterruptedException {
-        Thread.sleep(500);
-
-        String[] logoutXpaths = {
-            "//*[normalize-space()='Logout']",
-            "//*[normalize-space()='Log Out']",
-            "//*[normalize-space()='Log out']",
-            "//a[contains(text(),'Logout')]",
-            "//button[contains(text(),'Logout')]",
-            "//button[@role='menuitem']",
-            "//*[contains(@class,'logout')]"
-        };
-
-        for (String xpath : logoutXpaths) {
-            try {
-                WebElement logoutBtn = new WebDriverWait(driver, Duration.ofSeconds(3)).until(
-                        ExpectedConditions.elementToBeClickable(By.xpath(xpath)));
-                try { logoutBtn.click(); } catch (Exception e) { jsClick(logoutBtn); }
-                log.info("Clicked logout: {}", xpath);
-                return;
-            } catch (Exception e) {
-                // Try next locator
-            }
+    private void clickLogoutButton() {
+        try {
+            WebElement logoutBtn = longWait.until(ExpectedConditions.elementToBeClickable(LOGOUT_BUTTON));
+            jsClick(logoutBtn);
+            log.info("Clicked logout");
+        } catch (Exception e) {
+            log.warn("First attempt to click logout failed, retrying...");
+            WebElement logoutBtn = longWait.until(ExpectedConditions.elementToBeClickable(LOGOUT_BUTTON));
+            jsClick(logoutBtn);
+            log.info("Clicked logout (retry)");
         }
-
-        log.error("Could not find logout button in dropdown");
-        throw new RuntimeException("Logout button not found");
     }
 }
