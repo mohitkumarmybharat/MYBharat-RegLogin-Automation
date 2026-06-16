@@ -2,18 +2,19 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 
 <!--
-  ALL MODULES - Runs Public Pages in PARALLEL with the main user flow.
+  ALL MODULES - Runs 3 parallel threads for maximum efficiency.
   
   Thread 1: Public Pages (independent, own browser)
   Thread 2: Registration → Logout → Login → Profile → Certificate → Basic Info → Quiz → Quiz Certificate
+  Thread 3: Youth Club (Register Members → Create → Add 6 Members with OTP → Submit → SuperAdmin Approve)
   
-  Both threads run simultaneously, reducing total execution time.
-  Report and email content display all results together as before.
+  All 3 threads run simultaneously, reducing total execution time.
+  Report and email content display all results together.
   
   Run with:
     mvn test "-Denv=prod" "-Dbrowser=chrome" "-Dsurefire.suiteXmlFiles=testSuites/testng-all-modules.xml"
 -->
-<suite name="MYBharat All Modules" parallel="tests" thread-count="2" verbose="1"
+<suite name="MYBharat All Modules" parallel="tests" thread-count="3" verbose="1"
        group-by-instances="true" preserve-order="true">
 
     <listeners>
@@ -38,6 +39,14 @@
             <class name="com.mybharat.tests.youth.BasicInfoTest"/>
             <class name="com.mybharat.tests.youth.QuizAttemptTest"/>
             <class name="com.mybharat.tests.youth.QuizCertificateVerificationTest"/>
+        </classes>
+    </test>
+
+    <!-- PARALLEL THREAD 3: Youth Club — Create Organization + SuperAdmin Approve (own browser) -->
+    <test name="Youth Club Flow" preserve-order="true">
+        <classes>
+            <class name="com.mybharat.tests.org.RegisterMembersForYouthClubTest"/>
+            <class name="com.mybharat.tests.org.CreateYouthClubTest"/>
         </classes>
     </test>
 
