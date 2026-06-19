@@ -344,20 +344,36 @@ public class CreateYouthClubTest extends BaseTest {
         loginPage.closePopupIfPresent();
         Thread.sleep(1000);
 
-        // Ensure we're logged out — check if Sign In is visible
+        // Check if still logged in (previous logout might have failed on server)
+        boolean alreadyLoggedIn = false;
+        try {
+            WebElement userMenu = driver.findElement(By.xpath(
+                    "//a[@id='user-options'] | //button[contains(@class,'rounded-full')]"));
+            if (userMenu.isDisplayed()) {
+                alreadyLoggedIn = true;
+                log.warn("Still logged in — logging out first");
+                js.executeScript("arguments[0].click();", userMenu);
+                Thread.sleep(1500);
+                WebElement logoutLink = wait.until(ExpectedConditions.presenceOfElementLocated(
+                        By.xpath("//a[contains(@class,'firebase-profile-logout-btn')] | //a[contains(text(),'Log Out')]")));
+                js.executeScript("arguments[0].click();", logoutLink);
+                Thread.sleep(3000);
+                driver.get(cfg.getUrl());
+                Thread.sleep(5000);
+                loginPage.closePopupIfPresent();
+                Thread.sleep(1000);
+            }
+        } catch (Exception e) { /* not logged in — good */ }
+
+        // Click Sign In
         WebElement signIn = null;
         try {
             signIn = wait.until(ExpectedConditions.elementToBeClickable(
                     By.xpath("//span[normalize-space()='Sign In']")));
         } catch (Exception e) {
-            // Sign In not found — might still be logged in from previous step, try refreshing
-            log.warn("Sign In not found — refreshing page");
-            driver.get(cfg.getUrl());
-            Thread.sleep(5000);
-            loginPage.closePopupIfPresent();
-            Thread.sleep(1000);
+            // Fallback: try alternative Sign In locators
             signIn = wait.until(ExpectedConditions.elementToBeClickable(
-                    By.xpath("//span[normalize-space()='Sign In'] | //a[contains(@class,'sign-in')] | //a[contains(text(),'Sign In')]")));
+                    By.xpath("//a[contains(@class,'sign-in')] | //a[contains(text(),'Sign In')] | //*[normalize-space()='Sign In']")));
         }
         try { signIn.click(); } catch (Exception e) { js.executeScript("arguments[0].click();", signIn); }
         Thread.sleep(1500);
