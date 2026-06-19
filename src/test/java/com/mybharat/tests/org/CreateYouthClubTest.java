@@ -196,7 +196,7 @@ public class CreateYouthClubTest extends BaseTest {
 
         String[] emails = memberEmails.toArray(new String[0]);
         int addedCount = createOrgPage.addMembers(emails);
-        Assert.assertTrue(addedCount >= 6, "Only " + addedCount + "/6 members added and verified");
+        Assert.assertTrue(addedCount >= 6, "Only " + addedCount + "/6 members added (5 OTP verified + 1 pending)");
     }
 
     @Test(priority = 13, dependsOnMethods = "step8_address", retryAnalyzer = Retry.class)
@@ -316,10 +316,213 @@ public class CreateYouthClubTest extends BaseTest {
     }
 
     // =========================================================================
-    // STEP 19: SuperAdmin login and approve the Youth Club
+    // STEP 19: Login as Member 6 → Accept Youth Club invitation → Logout
     // =========================================================================
 
     @Test(priority = 19, dependsOnMethods = "step18_logoutAfterCreate", retryAnalyzer = Retry.class)
+    public void step19_member6AcceptInvite() throws Exception {
+        log.info("═══ Member 6: Login (Maildrop OTP) and Accept Youth Club Invitation ═══");
+
+        // Get the 6th member email (last one added — the one without OTP verify)
+        String member6Email = null;
+        if (memberEmails.size() >= 6) {
+            member6Email = memberEmails.get(5);
+        } else if (memberEmails.size() > 0) {
+            member6Email = memberEmails.get(memberEmails.size() - 1);
+        }
+        Assert.assertNotNull(member6Email, "Member 6 email not found");
+        log.info("Member 6 email: {}", member6Email);
+
+        ConfigReader cfg = new ConfigReader();
+        org.openqa.selenium.JavascriptExecutor js = (org.openqa.selenium.JavascriptExecutor) driver;
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
+        String mailbox = member6Email.split("@")[0];
+
+        // Step A: Navigate and open login modal
+        driver.get(cfg.getUrl());
+        Thread.sleep(3000);
+        loginPage.closePopupIfPresent();
+
+        WebElement signIn = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//span[normalize-space()='Sign In']")));
+        try { signIn.click(); } catch (Exception e) { js.executeScript("arguments[0].click();", signIn); }
+        Thread.sleep(1500);
+
+        // Step B: Enter email
+        WebElement emailInput = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.xpath("//input[@id='otp_login_header']")));
+        emailInput.clear();
+        emailInput.sendKeys(member6Email);
+        Thread.sleep(500);
+
+        // Step C: Check consent
+        try {
+            WebElement consent = wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("#consentCheck1")));
+            if (!consent.isSelected()) { try { consent.click(); } catch (Exception e) { js.executeScript("arguments[0].click();", consent); } }
+        } catch (Exception e) { /* skip */ }
+
+        // Step D: Capture prevCount BEFORE clicking Login
+        int prevCount = 0;
+        try (org.apache.hc.client5.http.impl.classic.CloseableHttpClient preClient =
+                org.apache.hc.client5.http.impl.classic.HttpClients.createDefault()) {
+            org.apache.hc.client5.http.classic.methods.HttpPost preReq =
+                    new org.apache.hc.client5.http.classic.methods.HttpPost("https://api.maildrop.cc/graphql");
+            preReq.setHeader("Content-Type", "application/json");
+            preReq.setEntity(new org.apache.hc.core5.http.io.entity.StringEntity(
+                    "{\"query\":\"{ inbox(mailbox:\\\"" + mailbox + "\\\") { id } }\"}"));
+            String preResp = org.apache.hc.core5.http.io.entity.EntityUtils.toString(
+                    preClient.execute(preReq).getEntity());
+            prevCount = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readTree(preResp).path("data").path("inbox").size();
+        } catch (Exception e) { /* default 0 */ }
+        log.info("  prevCount={} for {}", prevCount, mailbox);
+
+        // Step E: Click Login button (same as LoginPage uses)
+        WebElement loginBtn = wait.until(ExpectedConditions.elementToBeClickable(
+                By.cssSelector("button.firebase-user-sentOtp-btn")));
+        try { loginBtn.click(); } catch (Exception e) { js.executeScript("arguments[0].click();", loginBtn); }
+        log.info("  Login button clicked — OTP requested");
+
+        // Step F: Wait and fetch OTP from Maildrop (SAME as addMembers pattern)
+        Thread.sleep(5000);
+        String otp = "";
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+        for (int otpAttempt = 1; otpAttempt <= 8; otpAttempt++) {
+            try (org.apache.hc.client5.http.impl.classic.CloseableHttpClient httpClient =
+                    org.apache.hc.client5.http.impl.classic.HttpClients.createDefault()) {
+
+                // Get inbox
+                org.apache.hc.client5.http.classic.methods.HttpPost listReq =
+                        new org.apache.hc.client5.http.classic.methods.HttpPost("https://api.maildrop.cc/graphql");
+                listReq.setHeader("Content-Type", "application/json");
+                listReq.setEntity(new org.apache.hc.core5.http.io.entity.StringEntity(
+                        "{\"query\":\"{ inbox(mailbox:\\\"" + mailbox + "\\\") { id subject date } }\"}"));
+                String listResp = org.apache.hc.core5.http.io.entity.EntityUtils.toString(
+                        httpClient.execute(listReq).getEntity());
+
+                com.fasterxml.jackson.databind.JsonNode inbox = mapper.readTree(listResp).path("data").path("inbox");
+
+                if (inbox.size() <= prevCount) {
+                    log.info("  No NEW email yet (attempt {}/8, count={})", otpAttempt, inbox.size());
+                    Thread.sleep(3000);
+                    continue;
+                }
+
+                // Get the NEWEST message (index 0)
+                String msgId = inbox.get(0).get("id").asText();
+                org.apache.hc.client5.http.classic.methods.HttpPost msgReq =
+                        new org.apache.hc.client5.http.classic.methods.HttpPost("https://api.maildrop.cc/graphql");
+                msgReq.setHeader("Content-Type", "application/json");
+                msgReq.setEntity(new org.apache.hc.core5.http.io.entity.StringEntity(
+                        "{\"query\":\"{ message(mailbox:\\\"" + mailbox + "\\\", id:\\\"" + msgId + "\\\") { id html data } }\"}"));
+                String msgResp = org.apache.hc.core5.http.io.entity.EntityUtils.toString(
+                        httpClient.execute(msgReq).getEntity());
+
+                com.fasterxml.jackson.databind.JsonNode msg = mapper.readTree(msgResp).path("data").path("message");
+                String body = msg.has("html") && !msg.get("html").isNull()
+                        ? msg.get("html").asText() : msg.has("data") ? msg.get("data").asText() : "";
+
+                if (!body.isEmpty()) {
+                    // Pattern 1: <strong>XXXXXX</strong>
+                    java.util.regex.Matcher mStrong = java.util.regex.Pattern.compile("<strong>(\\d{6})</strong>").matcher(body);
+                    if (mStrong.find()) { otp = mStrong.group(1); break; }
+                    // Pattern 2: Your OTP: XXXXXX
+                    java.util.regex.Matcher mYourOtp = java.util.regex.Pattern.compile("Your OTP:\\s*(\\d{6})").matcher(body);
+                    if (mYourOtp.find()) { otp = mYourOtp.group(1); break; }
+                    // Pattern 3: OTP is XXXXXX
+                    java.util.regex.Matcher mIs = java.util.regex.Pattern.compile("(?:OTP|is)\\s+(?:<[^>]+>)*(\\d{6})").matcher(body);
+                    if (mIs.find()) { otp = mIs.group(1); break; }
+                }
+                Thread.sleep(3000);
+            } catch (Exception apiEx) {
+                log.warn("  Maildrop API error (attempt {}/8): {}", otpAttempt, apiEx.getMessage());
+                Thread.sleep(3000);
+            }
+        }
+        Assert.assertFalse(otp.isEmpty(), "Could not fetch OTP from Maildrop for Member 6 login");
+        log.info("  ✅ OTP fetched: {}", otp);
+
+        // Step G: Enter OTP and verify (login form — uses #otp-field-3 and #btn-otp-verify-header)
+        WebElement otpField = null;
+        try {
+            otpField = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                    By.cssSelector("#otp-field-3")));
+        } catch (Exception e) {
+            otpField = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                    By.xpath("//input[contains(@id,'otp-field')] | //input[contains(@class,'otp')]")));
+        }
+        otpField.clear();
+        otpField.sendKeys(otp);
+        Thread.sleep(500);
+
+        WebElement verifyBtn = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//button[@id='btn-otp-verify-header']")));
+        try { verifyBtn.click(); } catch (Exception e) { js.executeScript("arguments[0].click();", verifyBtn); }
+        Thread.sleep(3000);
+
+        Assert.assertTrue(loginPage.isLoginSuccessful(), "Member 6 login failed after OTP");
+        log.info("✅ Member 6 logged in: {}", member6Email);
+
+        // Step H: Handle "Update the newly introduced fields" popup (Caste, PwD, Aapda Mitra)
+        // This popup appears after login — just click Submit (fields are pre-filled)
+        Thread.sleep(3000);
+        try {
+            WebElement submitPopup = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//button[normalize-space()='Submit']")));
+            js.executeScript("arguments[0].click();", submitPopup);
+            log.info("✅ 'Update newly introduced fields' popup submitted");
+            Thread.sleep(2000);
+        } catch (Exception e) {
+            log.info("No 'Update fields' popup — continuing");
+        }
+
+        // Step I: Wait for "Confirm your participation" popup and click Accept
+        Thread.sleep(3000);
+        try {
+            WebElement acceptBtn = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//button[contains(text(),'Accept')]")));
+            js.executeScript("arguments[0].click();", acceptBtn);
+            log.info("✅ Clicked Accept — invitation accepted");
+            Thread.sleep(2000);
+        } catch (Exception e) {
+            try {
+                WebElement acceptAlt = wait.until(ExpectedConditions.elementToBeClickable(
+                        By.xpath("//button[normalize-space()='Accept'] | //a[contains(text(),'Accept')]")));
+                js.executeScript("arguments[0].click();", acceptAlt);
+                log.info("✅ Accept clicked via fallback");
+                Thread.sleep(2000);
+            } catch (Exception e2) {
+                log.error("❌ Accept button not found: {}", e2.getMessage());
+                throw e2;
+            }
+        }
+
+        // Step J: Logout Member 6
+        Thread.sleep(2000);
+        driver.get(cfg.getUrl() + "/mybharat_organizations");
+        Thread.sleep(4000);
+        loginPage.closePopupIfPresent();
+        Thread.sleep(1000);
+
+        WebElement userIcon = wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.xpath("//a[@id='user-options']")));
+        js.executeScript("arguments[0].click();", userIcon);
+        Thread.sleep(1500);
+
+        WebElement logoutBtn = wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.xpath("//a[contains(@class,'firebase-profile-logout-btn')]")));
+        js.executeScript("arguments[0].click();", logoutBtn);
+        Thread.sleep(3000);
+
+        log.info("✅ Member 6 logged out after accepting invitation");
+    }
+
+    // =========================================================================
+    // STEP 20: SuperAdmin login and approve the Youth Club
+    // =========================================================================
+
+    @Test(priority = 20, dependsOnMethods = "step19_member6AcceptInvite", retryAnalyzer = Retry.class)
     public void step19_superAdminApprove() throws Exception {
         log.info("═══ SuperAdmin: Approve Youth Club ═══");
 

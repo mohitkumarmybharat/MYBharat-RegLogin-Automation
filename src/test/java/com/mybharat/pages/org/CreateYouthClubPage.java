@@ -539,7 +539,8 @@ public class CreateYouthClubPage extends BasePage {
             safeSleep(2000); // Wait for member row to appear
 
             // For all 6 members: Send OTP → Get from Yopmail → Enter → Verify
-            if (addedCount < 6) {
+            // Member 6 (addedCount == 5): Skip OTP — will accept invite by logging in later
+            if (addedCount < 5) {
                 try {
                     // Find "Send OTP" element first (even if not visible)
                     WebElement sendOtp = null;
@@ -686,6 +687,8 @@ public class CreateYouthClubPage extends BasePage {
                 } catch (Exception otpEx) {
                     log.warn("  OTP verification failed for member {}: {}", i + 1, otpEx.getMessage());
                 }
+            } else {
+                log.info("  ⏭ Member {} (6th) — skipping OTP verify, will accept invite by login later", i + 1);
             }
 
             // Select Role from the LAST Role dropdown (most recently added member)
