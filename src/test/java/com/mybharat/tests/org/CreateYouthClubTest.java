@@ -340,11 +340,25 @@ public class CreateYouthClubTest extends BaseTest {
 
         // Step A: Navigate and open login modal
         driver.get(cfg.getUrl());
-        Thread.sleep(3000);
+        Thread.sleep(5000);
         loginPage.closePopupIfPresent();
+        Thread.sleep(1000);
 
-        WebElement signIn = wait.until(ExpectedConditions.elementToBeClickable(
-                By.xpath("//span[normalize-space()='Sign In']")));
+        // Ensure we're logged out — check if Sign In is visible
+        WebElement signIn = null;
+        try {
+            signIn = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//span[normalize-space()='Sign In']")));
+        } catch (Exception e) {
+            // Sign In not found — might still be logged in from previous step, try refreshing
+            log.warn("Sign In not found — refreshing page");
+            driver.get(cfg.getUrl());
+            Thread.sleep(5000);
+            loginPage.closePopupIfPresent();
+            Thread.sleep(1000);
+            signIn = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//span[normalize-space()='Sign In'] | //a[contains(@class,'sign-in')] | //a[contains(text(),'Sign In')]")));
+        }
         try { signIn.click(); } catch (Exception e) { js.executeScript("arguments[0].click();", signIn); }
         Thread.sleep(1500);
 
