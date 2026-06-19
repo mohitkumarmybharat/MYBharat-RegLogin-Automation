@@ -323,6 +323,10 @@ public class CreateYouthClubTest extends BaseTest {
     public void step19_member6AcceptInvite() throws Exception {
         log.info("═══ Member 6: Login (Maildrop OTP) and Accept Youth Club Invitation ═══");
 
+        // Wait for backend to process the Youth Club invitation (race condition on fast servers)
+        log.info("  Waiting 10s for backend to process invitation...");
+        Thread.sleep(10000);
+
         // Get the 6th member email (last one added — the one without OTP verify)
         String member6Email = null;
         if (memberEmails.size() >= 6) {
@@ -502,10 +506,16 @@ public class CreateYouthClubTest extends BaseTest {
                     By.xpath("//button[normalize-space()='Submit']")));
             js.executeScript("arguments[0].click();", submitPopup);
             log.info("✅ 'Update newly introduced fields' popup submitted");
-            Thread.sleep(2000);
+            Thread.sleep(3000);
         } catch (Exception e) {
             log.info("No 'Update fields' popup — continuing");
         }
+
+        // After Update fields popup, navigate to profile to trigger the Accept popup
+        driver.get(cfg.getUrl() + "/reports/public_profile");
+        Thread.sleep(5000);
+        loginPage.closePopupIfPresent();
+        Thread.sleep(2000);
 
         // Step I: Wait for "Confirm your participation" popup and click Accept
         Thread.sleep(3000);
@@ -516,14 +526,19 @@ public class CreateYouthClubTest extends BaseTest {
             log.info("✅ Clicked Accept — invitation accepted");
             Thread.sleep(2000);
         } catch (Exception e) {
+            // Try refreshing the profile page — popup might appear on reload
+            log.warn("Accept popup not found — refreshing profile page");
+            driver.navigate().refresh();
+            Thread.sleep(5000);
             try {
-                WebElement acceptAlt = wait.until(ExpectedConditions.elementToBeClickable(
-                        By.xpath("//button[normalize-space()='Accept'] | //a[contains(text(),'Accept')]")));
+                WebElement acceptAlt = new WebDriverWait(driver, Duration.ofSeconds(15)).until(
+                        ExpectedConditions.elementToBeClickable(
+                                By.xpath("//button[contains(text(),'Accept')] | //button[normalize-space()='Accept']")));
                 js.executeScript("arguments[0].click();", acceptAlt);
-                log.info("✅ Accept clicked via fallback");
+                log.info("✅ Accept clicked after refresh");
                 Thread.sleep(2000);
             } catch (Exception e2) {
-                log.error("❌ Accept button not found: {}", e2.getMessage());
+                log.error("❌ Accept button not found even after refresh: {}", e2.getMessage());
                 throw e2;
             }
         }
