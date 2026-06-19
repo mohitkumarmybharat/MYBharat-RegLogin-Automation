@@ -94,6 +94,10 @@ public class YouthProfilePage extends BasePage {
     private static final By SCHOOL_NAME_DIV = By.cssSelector("div[class='w-full border text-sm border-gray-300 rounded-lg px-3 py-2 cursor-pointer']");
     private static final By COURSE_SELECT = By.xpath("//div[6]//select[1]");
 
+    // Public profile verification locators
+    private static final By PUBLIC_PROFILE_LINK = By.xpath("//a[contains(text(),'https://web.mybharat.gov.in/youth-public-profile/d')]");
+    private static final By YOUTH_NAME = By.xpath("//span[@class='youth-name']");
+
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
@@ -114,24 +118,21 @@ public class YouthProfilePage extends BasePage {
      * 
      * Flow:
      *   1. Navigate to /youth-profile
-     *   2. Verify youth public profile (click link, verify username in new tab, close tab)
-     *   3. Upload profile photo
-     *   4. Fill About section
-     *   5. Add Area of Interest
-     *   6. Add Education Qualification
-     *   7. Add Language
-     *   8. Fill Professional Summary
-     *   9. Add Work Experience
-     *   10. Fill Tools section
+     *   2. Upload profile photo
+     *   3. Fill About section
+     *   4. Add Area of Interest
+     *   5. Add Education Qualification
+     *   6. Add Language
+     *   7. Fill Professional Summary
+     *   8. Add Work Experience
+     *   9. Fill Tools section
+     *   10. Verify youth public profile (click link, verify username in new tab, close tab)
      */
     public void completeYouthProfile() throws Exception {
         waitForReactReady();
 
         // Capture page source for debugging
         savePageSourceForDebug("before_profile_fill");
-
-        // Verify youth public profile first
-        verifyYouthPublicProfile();
 
         // Upload profile photo first
         uploadProfilePhoto();
@@ -144,7 +145,11 @@ public class YouthProfilePage extends BasePage {
         fillProfessionalSummary();
         addWorkExperience();
         fillToolsSection();
-        log.info("✅ All profile sections completed");
+        
+        log.info("✅ All profile sections completed - now verifying public profile");
+        
+        // Verify youth public profile AFTER all sections are filled
+        verifyYouthPublicProfile();
     }
 
     /**
@@ -249,14 +254,13 @@ public class YouthProfilePage extends BasePage {
     public void verifyYouthPublicProfile() throws InterruptedException {
         log.info("Verifying Youth Public Profile...");
         
-        // Click on youth public profile URL link
+        // Click on youth public profile URL link (matches: https://web.mybharat.gov.in/youth-public-profile/d)
         try {
             WebElement publicProfileLink = longWait.until(
-                    ExpectedConditions.elementToBeClickable(
-                            By.xpath("//a[contains(text(),'https://web.mybharat.gov.in/youth-public-profile') or contains(@href,'/youth-public-profile')]")));
+                    ExpectedConditions.elementToBeClickable(PUBLIC_PROFILE_LINK));
             scrollToElement(publicProfileLink);
             safeClick(publicProfileLink);
-            log.info("Clicked youth public profile link");
+            log.info("Clicked youth public profile link with 'd' suffix");
         } catch (Exception e) {
             log.warn("Could not find youth public profile link: {}", e.getMessage());
             return;
@@ -284,15 +288,14 @@ public class YouthProfilePage extends BasePage {
             boolean usernameFound = false;
             String nameText = "";
             
-            // Try multiple strategies to find the username
-            // Strategy 1: //span[@class='youth-name']
+            // Use the specified locator for youth name
+            // Strategy 1: //span[@class='youth-name'] (primary)
             try {
                 WebElement youthName = longWait.until(
-                        ExpectedConditions.visibilityOfElementLocated(
-                                By.xpath("//span[@class='youth-name']")));
+                        ExpectedConditions.visibilityOfElementLocated(YOUTH_NAME));
                 nameText = youthName.getText();
                 usernameFound = true;
-                log.info("✅ Username found via span[@class='youth-name']: {}", nameText);
+                log.info("✅ Username found via //span[@class='youth-name']: {}", nameText);
             } catch (Exception e1) {
                 log.info("Strategy 1 failed: //span[@class='youth-name']");
                 
