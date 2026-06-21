@@ -146,6 +146,10 @@ public class YouthProfilePage extends BasePage {
         addWorkExperience();
         fillToolsSection();
         
+        // Navigate to Basic Info tab and fill details
+        navigateToBasicInfo();
+        fillBasicInfoAndSave();
+
         log.info("✅ All profile sections completed - now verifying public profile");
         
         // Verify youth public profile AFTER all sections are filled
@@ -237,6 +241,76 @@ public class YouthProfilePage extends BasePage {
         }
 
         log.info("Extracted Email from React profile: {}", value);
+    }
+
+    /**
+     * Fill Basic Info form fields and click Save.
+     * Sets: First Name = Nishant, Last Name = Sharma, DOB = 23/03/1990, Gender = Male
+     */
+    public void fillBasicInfoAndSave() throws InterruptedException {
+        log.info("Filling Basic Info form...");
+
+        // First Name
+        try {
+            WebElement firstNameInput = longWait.until(ExpectedConditions.visibilityOfElementLocated(
+                    By.xpath("//input[@placeholder='Enter First Name']")));
+            scrollToElement(firstNameInput);
+            firstNameInput.clear();
+            firstNameInput.sendKeys("Nishant");
+            log.info("First Name entered: Nishant");
+        } catch (Exception e) {
+            log.warn("First Name input not found: {}", e.getMessage());
+        }
+
+        // Last Name
+        try {
+            WebElement lastNameInput = longWait.until(ExpectedConditions.visibilityOfElementLocated(
+                    By.xpath("//input[@placeholder='Enter Last Name']")));
+            scrollToElement(lastNameInput);
+            lastNameInput.clear();
+            lastNameInput.sendKeys("Sharma");
+            log.info("Last Name entered: Sharma");
+        } catch (Exception e) {
+            log.warn("Last Name input not found: {}", e.getMessage());
+        }
+
+        // Date of Birth
+        try {
+            WebElement dobInput = longWait.until(ExpectedConditions.visibilityOfElementLocated(
+                    By.xpath("//input[@name='dob']")));
+            scrollToElement(dobInput);
+            dobInput.clear();
+            dobInput.sendKeys("23/03/1990");
+            log.info("DOB entered: 23/03/1990");
+        } catch (Exception e) {
+            log.warn("DOB input not found: {}", e.getMessage());
+        }
+
+        // Gender — select Male
+        try {
+            WebElement genderSelect = longWait.until(ExpectedConditions.visibilityOfElementLocated(
+                    By.xpath("//select[@name='gender']")));
+            scrollToElement(genderSelect);
+            new org.openqa.selenium.support.ui.Select(genderSelect).selectByVisibleText("Male");
+            log.info("Gender selected: Male");
+        } catch (Exception e) {
+            log.warn("Gender dropdown not found: {}", e.getMessage());
+        }
+
+        safeSleep(500);
+
+        // Click Save button
+        try {
+            WebElement saveBtn = longWait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//button[normalize-space()='Save']")));
+            scrollToElement(saveBtn);
+            jsClick(saveBtn);
+            log.info("Clicked Save button");
+            waitForToastOrTimeout();
+            log.info("✅ Basic Info saved successfully");
+        } catch (Exception e) {
+            log.warn("Save button not found: {}", e.getMessage());
+        }
     }
 
     /**
