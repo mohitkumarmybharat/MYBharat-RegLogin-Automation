@@ -292,34 +292,19 @@ public class RegistrationPage extends BasePage {
         Select category = selectDropdown(categoryDropdown);
         category.selectByIndex(faker.number().numberBetween(2, 5)); // index 2,3,4
 
-        // State & District
+        // State & District — Uttar Pradesh (value=35), Ghaziabad (value=726)
         Select state = selectDropdown(stateDropdown);
-        state.selectByIndex(faker.number().numberBetween(1, 15));
+        state.selectByValue("35"); // UTTAR PRADESH
 
         waitForClickable(districtDropdown);
         Select district = selectDropdown(districtDropdown);
-        district.selectByIndex(faker.number().numberBetween(1, 2));
+        district.selectByValue("726"); // GHAZIABAD
 
-        // Address - try Urban first
+        // Address - Urban: Modinagar (value=248981)
         safeClick(urbanRadio);
         Select localBody = selectDropdown(ulbDropdown);
-        if (localBody.getOptions().size() > 1) {
-            localBody.selectByIndex(1);
-            urbanPincode.sendKeys(String.valueOf(faker.number().numberBetween(100000, 999999)));
-        } else {
-            // Fall back to Rural
-            safeClick(ruralRadio);
-            safeClick(blockPlaceholder);
-            blockInput.sendKeys("a");
-            blockInput.sendKeys(Keys.ENTER);
-            safeClick(panchayatPlaceholder);
-            panchayatInput.sendKeys("a");
-            panchayatInput.sendKeys(Keys.ENTER);
-            safeClick(villagePlaceholder);
-            villageInput.sendKeys("a");
-            villageInput.sendKeys(Keys.ENTER);
-            ruralPincode.sendKeys(String.valueOf(faker.number().numberBetween(100000, 999999)));
-        }
+        localBody.selectByValue("248981"); // Modinagar
+        urbanPincode.sendKeys("201204");
 
         // Yuva type
         safeClick(yuvaTypeCheckbox);
