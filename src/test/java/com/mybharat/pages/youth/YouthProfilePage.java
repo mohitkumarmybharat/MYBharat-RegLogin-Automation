@@ -145,10 +145,6 @@ public class YouthProfilePage extends BasePage {
         fillProfessionalSummary();
         addWorkExperience();
         fillToolsSection();
-        
-        // Navigate to Basic Info tab and fill details
-        navigateToBasicInfo();
-        fillBasicInfoAndSave();
 
         log.info("✅ All profile sections completed - now verifying public profile");
         
