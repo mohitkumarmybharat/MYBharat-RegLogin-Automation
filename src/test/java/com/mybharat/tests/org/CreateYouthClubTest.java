@@ -344,8 +344,17 @@ public class CreateYouthClubTest extends BaseTest {
             }
         } catch (Exception e) { /* not logged in */ }
 
-        // Sign In
-        WebElement signIn = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//span[normalize-space()='Sign In'] | //*[normalize-space()='Sign In']")));
+        // Sign In - try multiple locators with 40s timeout (server page load varies)
+        WebElement signIn = null;
+        WebDriverWait longWait40 = new WebDriverWait(driver, Duration.ofSeconds(40));
+        for (String loc : new String[]{
+                "//span[normalize-space()='Sign In']",
+                "//a[normalize-space()='Sign In']",
+                "//*[normalize-space()='Sign In']"}) {
+            try { signIn = longWait40.until(ExpectedConditions.elementToBeClickable(By.xpath(loc))); break; }
+            catch (Exception ex) { /* try next */ }
+        }
+        if (signIn == null) throw new RuntimeException("[Step 19] Sign In not found after 40s");
         try { signIn.click(); } catch (Exception e) { js.executeScript("arguments[0].click();", signIn); }
         safeSleep(1500);
 
