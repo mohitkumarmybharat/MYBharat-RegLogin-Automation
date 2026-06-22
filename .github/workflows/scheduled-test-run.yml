@@ -1,4 +1,4 @@
-name: Scheduled Test Execution — MY Bharat (Production)
+﻿name: Scheduled Test Execution — MY Bharat (Production)
 
 on:
   workflow_dispatch:  # Manual trigger only from GitHub UI
