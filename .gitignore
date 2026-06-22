@@ -60,3 +60,16 @@ local/
 # Kiro AI config (developer-specific)
 # ========================
 .kiro/
+
+# ========================
+# VS Code workspace files
+# ========================
+*.code-workspace
+
+# ========================
+# Large binary/media files
+# ========================
+*.mp4
+*.mp3
+*.avi
+*.mov
