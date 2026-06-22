@@ -60,8 +60,8 @@ public class RegisterMembersForYouthClubTest {
     /** Thread-safe list to collect registered emails from all parallel threads */
     private static final CopyOnWriteArrayList<String> registeredEmails = new CopyOnWriteArrayList<>();
 
-    /** Starting number for yc emails (read from Excel in @BeforeClass) */
-    private static int startNumber = 1;
+    /** Starting number for yco emails — volatile for thread visibility */
+    private static volatile int startNumber = 1;
 
     private final ConfigReader config = new ConfigReader();
 
