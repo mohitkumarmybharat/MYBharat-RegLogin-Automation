@@ -40,7 +40,7 @@ import io.github.bonigarcia.wdm.WebDriverManager;
  * RegisterMembersForYouthClubTest — Registers 6 fresh youth users for Youth Club membership.
  *
  * Strategy: 3 parallel browsers first, then 3 more parallel browsers.
- * Email: yc{N}@maildrop.cc (N auto-increments, 6-digit padded, from last used number in Excel)
+ * Email: ycc{N}@maildrop.cc (N auto-increments, 5-digit padded, from last used number in Excel)
  * OTP Fetch: Maildrop GraphQL API with prevCount logic
  *
  * Saves registered emails to:
@@ -73,7 +73,7 @@ public class RegisterMembersForYouthClubTest {
         startNumber = getLastYccNumber() + 1;
         log.info("═══ Registering {} fresh members for Youth Club ═══", MEMBER_COUNT);
         log.info("═══ Email: yc{}..yc{}{} ═══", 
-                String.format("%06d", startNumber), String.format("%06d", startNumber + MEMBER_COUNT - 1), EMAIL_DOMAIN);
+                String.format("%05d", startNumber), String.format("%05d", startNumber + MEMBER_COUNT - 1), EMAIL_DOMAIN);
     }
 
     // =========================================================================

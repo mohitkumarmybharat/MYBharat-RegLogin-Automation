@@ -27,8 +27,8 @@ jobs:
         run: |
           REPORT_FILE="target/surefire-reports/testng-results.xml"
           if [ -f "$REPORT_FILE" ]; then
-            # Count exactly the 14 test methods shown in the email table
-            TRACKED_METHODS="publicPages registerIndianYouth verifyUserInDatabase logoutUser loginWithOTP completeYouthProfile verifyRegistrationCertificateDownload clickBasicInfoAndExtractEmail attemptCompetitiveQuiz verifyQuizCertificateDownload writeAndPublishBlog voFullCycle step15_submit step19_superAdminApprove"
+            # Count exactly the 13 test methods shown in the email table
+            TRACKED_METHODS="publicPages registerIndianYouth verifyUserInDatabase logoutUser loginWithOTP completeYouthProfile verifyRegistrationCertificateDownload clickBasicInfoAndExtractEmail attemptCompetitiveQuiz verifyQuizCertificateDownload writeAndPublishBlog step15_submit step19_superAdminApprove"
             PASSED=0
             FAILED=0
             SKIPPED=0
@@ -133,7 +133,6 @@ jobs:
             echo "s9=$(get_status 'verifyQuizCertificateDownload')" >> $GITHUB_OUTPUT
           fi
           echo "s10=$(get_status 'writeAndPublishBlog')" >> $GITHUB_OUTPUT
-          echo "s11=$(get_status 'voFullCycle')" >> $GITHUB_OUTPUT
 
           # Youth Club: if ANY step in the flow failed or was skipped, mark both as FAIL
           YC_STATUS="✅ PASS"
@@ -156,8 +155,8 @@ jobs:
               YC_STATUS="❌ FAIL"
             fi
           fi
+          echo "s11=${YC_STATUS}" >> $GITHUB_OUTPUT
           echo "s12=${YC_STATUS}" >> $GITHUB_OUTPUT
-          echo "s13=${YC_STATUS}" >> $GITHUB_OUTPUT
 
       - name: Upload ExtentReport as artifact
         if: always()
