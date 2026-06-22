@@ -6,9 +6,9 @@
   ║               MY BHARAT - ALL MODULES E2E SUITE                     ║
   ╠══════════════════════════════════════════════════════════════════════╣
   ║                                                                     ║
-  ║  Execution Mode: PARALLEL (2 threads)                               ║
-  ║  Total Test Cases: 11 (as reported in email)                        ║
-  ║  Approx Duration: ~8 minutes                                        ║
+  ║  Execution Mode: PARALLEL (3 threads)                               ║
+  ║  Total Test Cases: 13 (as reported in email)                        ║
+  ║  Approx Duration: ~10 minutes                                       ║
   ║                                                                     ║
   ║  Thread 1 (Public Pages):                                           ║
   ║    - Validates all header menus, org sections, footer links         ║
@@ -20,6 +20,11 @@
   ║    → Blog Creation                                                  ║
   ║    - All steps share the SAME browser session (user stays logged in)║
   ║                                                                     ║
+  ║  Thread 3 (Youth Club):                                             ║
+  ║    - Register 6 Members → Create Youth Club → Add Members with OTP  ║
+  ║    → Submit → SuperAdmin Approve                                    ║
+  ║    - Own browser instance                                           ║
+  ║                                                                     ║
   ║  CI/CD:                                                             ║
   ║    - Scheduled: Runs daily on main branch (email to seniors)        ║
   ║    - Manual: Trigger from Actions tab on integration branch         ║
@@ -30,7 +35,7 @@
   ║                                                                     ║
   ╚══════════════════════════════════════════════════════════════════════╝
 -->
-<suite name="MYBharat All Modules" parallel="tests" thread-count="2" verbose="1"
+<suite name="MYBharat All Modules" parallel="tests" thread-count="3" verbose="1"
        group-by-instances="true" preserve-order="true">
 
     <listeners>
@@ -78,6 +83,14 @@
             <class name="com.mybharat.tests.youth.QuizCertificateVerificationTest"/>
             <!-- Step 9: Navigate to /blogs/, create blog, verify Pending status in My Blogs -->
             <class name="com.mybharat.tests.blog.BlogTest"/>
+        </classes>
+    </test>
+
+    <!-- PARALLEL THREAD 3: Youth Club — Create Organization + SuperAdmin Approve (own browser) -->
+    <test name="Youth Club Flow" preserve-order="true">
+        <classes>
+            <class name="com.mybharat.tests.org.RegisterMembersForYouthClubTest"/>
+            <class name="com.mybharat.tests.org.CreateYouthClubTest"/>
         </classes>
     </test>
 
