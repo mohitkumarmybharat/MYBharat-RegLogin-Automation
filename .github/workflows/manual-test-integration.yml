@@ -1,4 +1,4 @@
-name: Manual Test Run — Integration Branch
+ï»¿name: Manual Test Run ï¿½ Integration Branch
 
 on:
   workflow_dispatch:
@@ -101,10 +101,10 @@ jobs:
           FAILED="${{ steps.parse.outputs.failed }}"
           if [ "$FAILED" == "0" ] || [ -z "$FAILED" ]; then
             echo "status=ALL TESTS PASSED" >> $GITHUB_OUTPUT
-            echo "emoji=?" >> $GITHUB_OUTPUT
+            echo "emoji=âœ…" >> $GITHUB_OUTPUT
           else
             echo "status=SOME TESTS FAILED" >> $GITHUB_OUTPUT
-            echo "emoji=?" >> $GITHUB_OUTPUT
+            echo "emoji=âŒ" >> $GITHUB_OUTPUT
           fi
           echo "timestamp=$(TZ='Asia/Kolkata' date +'%d-%b-%Y %I:%M %p IST')" >> $GITHUB_OUTPUT
           echo "failed=${FAILED:-0}" >> $GITHUB_OUTPUT
@@ -153,16 +153,16 @@ jobs:
             local method="$1"
             if grep -q "name=\"$method\"" "$REPORT_FILE" 2>/dev/null; then
               if grep -A2 "name=\"$method\"" "$REPORT_FILE" | grep -q 'status="FAIL"'; then
-                echo "? FAIL"
+                echo "âŒ FAIL"
               else
-                echo "? PASS"
+                echo "âœ… PASS"
               fi
             else
-              echo "? SKIP"
+              echo "â­ SKIP"
             fi
           }
 
-          # Public Pages — single test method "publicPages"
+          # Public Pages ï¿½ single test method "publicPages"
           echo "s0=$(get_status 'publicPages')" >> $GITHUB_OUTPUT
 
           echo "s1=$(get_status 'registerIndianYouth')" >> $GITHUB_OUTPUT
@@ -225,7 +225,7 @@ jobs:
           html_body: |
             <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 700px; margin: 0 auto;">
               <div style="background: linear-gradient(135deg, #160363, #2d0a8f); padding: 25px; text-align: center; border-radius: 8px 8px 0 0;">
-                <h1 style="color: #fff; margin: 0; font-size: 22px;">MY Bharat — QA Automation Report</h1>
+                <h1 style="color: #fff; margin: 0; font-size: 22px;">MY Bharat ï¿½ QA Automation Report</h1>
                 <p style="color: #c4b5fd; margin: 8px 0 0; font-size: 13px;">Production Environment | Manual Test Run (Integration)</p>
               </div>
               <div style="background: ${{ steps.result.outputs.emoji == '?' && '#28a745' || '#dc3545' }}; padding: 14px; text-align: center;">
@@ -237,7 +237,7 @@ jobs:
                   <tr><td style="padding: 8px; font-weight: bold; width: 40%;">Execution Time:</td><td style="padding: 8px;">${{ steps.result.outputs.timestamp }}</td></tr>
                   <tr style="background:#f9f9f9;"><td style="padding: 8px; font-weight: bold;">Environment:</td><td style="padding: 8px;">Production (https://mybharat.gov.in)</td></tr>
                   <tr><td style="padding: 8px; font-weight: bold;">Browser:</td><td style="padding: 8px;">Google Chrome (UI Mode)</td></tr>
-                  <tr style="background:#f9f9f9;"><td style="padding: 8px; font-weight: bold;">Test Suite:</td><td style="padding: 8px;">All Modules — Full End-to-End</td></tr>
+                  <tr style="background:#f9f9f9;"><td style="padding: 8px; font-weight: bold;">Test Suite:</td><td style="padding: 8px;">All Modules ï¿½ Full End-to-End</td></tr>
                   <tr><td style="padding: 8px; font-weight: bold;">Registered User:</td><td style="padding: 8px;">${{ steps.details.outputs.reg_email }}</td></tr>
                   <tr style="background:#f9f9f9;"><td style="padding: 8px; font-weight: bold;">Branch:</td><td style="padding: 8px;">${{ github.event.inputs.branch || github.ref_name }}</td></tr>
                 </table>
