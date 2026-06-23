@@ -1,4 +1,4 @@
-﻿name: Manual Test Run � Integration Branch
+name: Manual Test Run � Integration Branch
 
 on:
   workflow_dispatch:
@@ -384,7 +384,7 @@ jobs:
                 </table>
                 <h3 style="color: #160363; margin: 0 0 12px; border-bottom: 2px solid #160363; padding-bottom: 5px;">Test Flow</h3>
                 <p style="font-size: 13px; color: #555; line-height: 1.8;">
-                  Public Pages (Header + Org + Footer) ? Registration (new user) ? Logout ? Login (OTP) ? Complete Profile ? Download Certificate ? Verify Basic Info ? Play Quiz ? Quiz Certificate ? Blog Creation ? Create Youth Club ? Approve Youth Club
+                  Public Pages (Header + Org + Footer) → Registration (new user) → Logout → Login (OTP) → Complete Profile → Download Certificate → Verify Basic Info → Play Quiz → Quiz Certificate → Blog Creation → Create Youth Club → Approve Youth Club
                 </p>
                 <div style="text-align: center; margin: 25px 0;">
                   <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" style="background: #160363; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">View Detailed Report & Logs</a>
