@@ -189,7 +189,7 @@ jobs:
             <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 700px; margin: 0 auto;">
               <!-- Header -->
               <div style="background: linear-gradient(135deg, #160363, #2d0a8f); padding: 25px; text-align: center; border-radius: 8px 8px 0 0;">
-                <h1 style="color: #fff; margin: 0; font-size: 22px;">MY Bharat � QA Automation Report</h1>
+                <h1 style="color: #fff; margin: 0; font-size: 22px;">MY Bharat  —  QA Automation Report</h1>
                 <p style="color: #c4b5fd; margin: 8px 0 0; font-size: 13px;">Production Environment | Automated E2E Test Execution</p>
               </div>
 
