@@ -173,6 +173,16 @@ public class CreateYouthClubTest extends BaseTest {
         createOrgPage.finalSubmit();
         Assert.assertTrue(createOrgPage.isSubmissionSuccessful(), "[Step 15] Submission failed");
 
+        // Save Youth Club name to file for email report
+        try {
+            File reportsDir = new File(System.getProperty("user.dir") + File.separator + "reports");
+            reportsDir.mkdirs();
+            java.io.FileWriter fw = new java.io.FileWriter(reportsDir + File.separator + "youth_club_name.txt");
+            fw.write(youthClubName);
+            fw.close();
+            log.info("Saved youth club name to reports/youth_club_name.txt: {}", youthClubName);
+        } catch (Exception e) { log.warn("Could not save youth club name: {}", e.getMessage()); }
+
         // Mark used members in Excel as "Picked" with Youth Club name
         markMembersAsPicked();
 
@@ -374,30 +384,20 @@ public class CreateYouthClubTest extends BaseTest {
 
         ConfigReader cfg = new ConfigReader();
         org.openqa.selenium.JavascriptExecutor js = (org.openqa.selenium.JavascriptExecutor) driver;
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
         String mailbox = member6Email.split("@")[0];
 
-        // Navigate and check if logged out
-        driver.get(cfg.getUrl());
-        safeSleep(4000);
-        loginPage.closePopupIfPresent();
-        safeSleep(500);
+        // ROBUST: Clear all cookies + local storage to force clean logout state
+        driver.manage().deleteAllCookies();
+        try { js.executeScript("window.localStorage.clear(); window.sessionStorage.clear();"); } catch (Exception e) { /* ignore */ }
+        log.info("  Cleared cookies and storage — fresh session");
 
-        // Force logout if still logged in
-        try {
-            WebElement userMenu = driver.findElement(By.xpath("//a[@id='user-options'] | //button[contains(@class,'rounded-full')]"));
-            if (userMenu.isDisplayed()) {
-                js.executeScript("arguments[0].click();", userMenu);
-                safeSleep(1500);
-                WebElement logoutLink = wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//a[contains(@class,'firebase-profile-logout-btn')] | //a[contains(text(),'Log Out')]")));
-                js.executeScript("arguments[0].click();", logoutLink);
-                safeSleep(2000);
-                driver.get(cfg.getUrl());
-                safeSleep(4000);
-                loginPage.closePopupIfPresent();
-                safeSleep(500);
-            }
-        } catch (Exception e) { /* not logged in */ }
+        // Navigate to home page (will show Sign In since no session)
+        driver.get(cfg.getUrl());
+        safeSleep(5000);
+        loginPage.closePopupIfPresent();
+        safeSleep(1000);
+
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
 
         // Sign In - try multiple locators with 40s timeout (server page load varies)
         WebElement signIn = null;
