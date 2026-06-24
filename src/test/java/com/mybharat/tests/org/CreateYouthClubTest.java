@@ -386,11 +386,10 @@ public class CreateYouthClubTest extends BaseTest {
         org.openqa.selenium.JavascriptExecutor js = (org.openqa.selenium.JavascriptExecutor) driver;
         String mailbox = member6Email.split("@")[0];
 
-        // ROBUST: Clear all cookies + local storage + indexedDB to force clean logout state
+        // ROBUST: Clear all cookies + local storage to force clean logout state
         driver.manage().deleteAllCookies();
         try { js.executeScript("window.localStorage.clear(); window.sessionStorage.clear();"); } catch (Exception e) { /* ignore */ }
-        try { js.executeScript("indexedDB.deleteDatabase('firebaseLocalStorageDb');"); } catch (Exception e) { /* ignore */ }
-        log.info("  Cleared cookies, storage, and Firebase indexedDB — fresh session");
+        log.info("  Cleared cookies and storage — fresh session");
 
         // Navigate to home page (will show Sign In since no session)
         driver.get(cfg.getUrl());
