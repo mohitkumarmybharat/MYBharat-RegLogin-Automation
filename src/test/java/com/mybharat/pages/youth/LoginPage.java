@@ -228,69 +228,94 @@ public class LoginPage extends BasePage {
      * Fetch OTP from Yopmail in new tab, extract it, and enter in login form.
      */
     public void fetchOTPFromYopmail() throws InterruptedException {
-        log.info("Fetching OTP from Maildrop API for: {}", loginEmail);
-
-        // Fetch OTP via Maildrop GraphQL API (no browser tab needed)
+        log.info("Fetching OTP from Yopmail for: {}", loginEmail);
+        String yopmailUrl = config.getDummyEmailUrl();
         String mailbox = loginEmail.split("@")[0];
+
+        // Open Yopmail in a new tab
+        driver.switchTo().newWindow(WindowType.TAB);
+        driver.get(yopmailUrl);
+        Thread.sleep(2000);
+
+        // Enter email in Yopmail inbox
+        WebDriverWait yopmailWait = new WebDriverWait(driver, Duration.ofSeconds(15));
+        WebElement inboxInput = yopmailWait.until(ExpectedConditions.visibilityOf(yopmailInbox));
+        inboxInput.clear();
+        inboxInput.sendKeys(mailbox);
+        safeClick(yopmailGoBtn);
+        Thread.sleep(3000);
+
+        // Wait and refresh for OTP email to arrive
         String otp = null;
+        for (int attempt = 1; attempt <= 6; attempt++) {
+            try {
+                // Switch to mail iframe
+                driver.switchTo().frame("ifmail");
+                Thread.sleep(1000);
 
-        try {
-            org.apache.hc.client5.http.impl.classic.CloseableHttpClient client =
-                    org.apache.hc.client5.http.impl.classic.HttpClients.createDefault();
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-
-            // Poll for new email (max 30 seconds)
-            for (int attempt = 1; attempt <= 10; attempt++) {
-                Thread.sleep(3000);
-
-                org.apache.hc.client5.http.classic.methods.HttpPost listReq =
-                        new org.apache.hc.client5.http.classic.methods.HttpPost("https://api.maildrop.cc/graphql");
-                listReq.setHeader("Content-Type", "application/json");
-                listReq.setEntity(new org.apache.hc.core5.http.io.entity.StringEntity(
-                        "{\"query\":\"{ inbox(mailbox:\\\"" + mailbox + "\\\") { id } }\"}"));
-                String listResp = org.apache.hc.core5.http.io.entity.EntityUtils.toString(
-                        client.execute(listReq).getEntity());
-
-                com.fasterxml.jackson.databind.JsonNode inbox = mapper.readTree(listResp).path("data").path("inbox");
-                if (inbox.size() == 0) continue;
-
-                // Get the newest message
-                String msgId = inbox.get(0).get("id").asText();
-
-                org.apache.hc.client5.http.classic.methods.HttpPost msgReq =
-                        new org.apache.hc.client5.http.classic.methods.HttpPost("https://api.maildrop.cc/graphql");
-                msgReq.setHeader("Content-Type", "application/json");
-                msgReq.setEntity(new org.apache.hc.core5.http.io.entity.StringEntity(
-                        "{\"query\":\"{ message(mailbox:\\\"" + mailbox + "\\\", id:\\\"" + msgId + "\\\") { id html } }\"}"));
-                String msgResp = org.apache.hc.core5.http.io.entity.EntityUtils.toString(
-                        client.execute(msgReq).getEntity());
-
-                String html = mapper.readTree(msgResp).path("data").path("message").path("html").asText();
-
-                // Extract OTP from <strong>XXXXXX</strong>
-                java.util.regex.Matcher m = java.util.regex.Pattern.compile("<strong>(\\d{6})</strong>").matcher(html);
-                if (m.find()) {
-                    otp = m.group(1);
+                // Try to find OTP text — look for exactly 6 digits (OTP pattern)
+                String bodyText = driver.findElement(By.tagName("body")).getText();
+                // First try: look for "is XXXXXX" pattern (MYBharat OTP format)
+                java.util.regex.Matcher m1 = java.util.regex.Pattern.compile("is\\s+(\\d{6})").matcher(bodyText);
+                if (m1.find()) {
+                    otp = m1.group(1);
                     break;
                 }
-                // Fallback pattern
-                java.util.regex.Matcher m2 = java.util.regex.Pattern.compile("is\\s+(\\d{6})").matcher(html);
+                // Second try: any standalone 6-digit number
+                java.util.regex.Matcher m2 = java.util.regex.Pattern.compile("\\b(\\d{6})\\b").matcher(bodyText);
                 if (m2.find()) {
                     otp = m2.group(1);
                     break;
                 }
+            } catch (Exception e) {
+                // OTP email not yet arrived
+            } finally {
+                driver.switchTo().defaultContent();
             }
-            client.close();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to fetch OTP from Maildrop API for: " + loginEmail, e);
+
+            // Refresh and retry
+            try {
+                safeClick(yopmailRefresh);
+            } catch (Exception e) {
+                driver.navigate().refresh();
+            }
+            Thread.sleep(5000);
         }
 
         if (otp == null) {
-            throw new RuntimeException("OTP not received for: " + loginEmail);
+            // Last fallback — check body one more time for 6-digit OTP
+            try {
+                driver.switchTo().frame("ifmail");
+                String bodyText = driver.findElement(By.tagName("body")).getText();
+                java.util.regex.Matcher m1 = java.util.regex.Pattern.compile("is\\s+(\\d{6})").matcher(bodyText);
+                if (m1.find()) {
+                    otp = m1.group(1);
+                } else {
+                    java.util.regex.Matcher m2 = java.util.regex.Pattern.compile("\\b(\\d{6})\\b").matcher(bodyText);
+                    if (m2.find()) {
+                        otp = m2.group(1);
+                    }
+                }
+                driver.switchTo().defaultContent();
+            } catch (Exception e) {
+                driver.switchTo().defaultContent();
+            }
         }
 
-        log.info("Extracted OTP from Maildrop API: {}", otp);
-        log.info("OTP extracted: {}", otp);
+        if (otp == null) {
+            driver.close();
+            ArrayList<String> tabs = new ArrayList<>(driver.getWindowHandles());
+            driver.switchTo().window(tabs.get(0));
+            throw new RuntimeException("OTP not received in Yopmail for: " + loginEmail);
+        }
+
+        log.info("Extracted OTP from Yopmail: {}", otp);
+
+        // Close Yopmail tab and switch back to login tab
+        driver.close();
+        ArrayList<String> tabs = new ArrayList<>(driver.getWindowHandles());
+        driver.switchTo().window(tabs.get(0));
+        Thread.sleep(1000);
 
         // Enter OTP in the login form
         WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(LONG_WAIT));
