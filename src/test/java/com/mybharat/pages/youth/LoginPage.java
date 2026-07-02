@@ -228,51 +228,79 @@ public class LoginPage extends BasePage {
      * Fetch OTP from Yopmail in new tab, extract it, and enter in login form.
      */
     public void fetchOTPFromYopmail() throws InterruptedException {
-        log.info("Fetching OTP from Yopmail for: {}", loginEmail);
+        log.info("Fetching OTP from Maildrop API for: {}", loginEmail);
 
-        // Wait for OTP email to arrive before opening Yopmail
-        safeSleep(5000);
+        // Fetch OTP via Maildrop GraphQL API (no browser tab needed)
+        String mailbox = loginEmail.split("@")[0];
+        String otp = null;
 
-        // Open new tab for Yopmail
-        driver.switchTo().newWindow(WindowType.TAB);
-        driver.get(config.getDummyEmailUrl());
-        safeSleep(300);
+        try {
+            org.apache.hc.client5.http.impl.classic.CloseableHttpClient client =
+                    org.apache.hc.client5.http.impl.classic.HttpClients.createDefault();
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
-        // Enter email prefix in Yopmail
-        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(LONG_WAIT));
-        WebElement inbox = longWait.until(ExpectedConditions.visibilityOf(yopmailInbox));
-        inbox.clear();
-        String emailPrefix = loginEmail.split("@")[0];
-        inbox.sendKeys(emailPrefix);
-        safeClick(yopmailGoBtn);
-        safeSleep(2000);
+            // Poll for new email (max 45 seconds)
+            for (int attempt = 1; attempt <= 15; attempt++) {
+                Thread.sleep(3000);
 
-        // Refresh to get latest email
-        safeClick(yopmailRefresh);
-        safeSleep(2000);
+                org.apache.hc.client5.http.classic.methods.HttpPost listReq =
+                        new org.apache.hc.client5.http.classic.methods.HttpPost("https://api.maildrop.cc/graphql");
+                listReq.setHeader("Content-Type", "application/json");
+                listReq.setEntity(new org.apache.hc.core5.http.io.entity.StringEntity(
+                        "{\"query\":\"{ inbox(mailbox:\\\"" + mailbox + "\\\") { id } }\"}"));
+                String listResp = org.apache.hc.core5.http.io.entity.EntityUtils.toString(
+                        client.execute(listReq).getEntity());
 
-        // Switch to mail iframe and extract OTP
-        driver.switchTo().frame("ifmail");
-        String otp = extractOTPFromEmail();
+                com.fasterxml.jackson.databind.JsonNode inbox = mapper.readTree(listResp).path("data").path("inbox");
+                if (inbox.size() == 0) continue;
+
+                // Get the newest message
+                String msgId = inbox.get(0).get("id").asText();
+
+                org.apache.hc.client5.http.classic.methods.HttpPost msgReq =
+                        new org.apache.hc.client5.http.classic.methods.HttpPost("https://api.maildrop.cc/graphql");
+                msgReq.setHeader("Content-Type", "application/json");
+                msgReq.setEntity(new org.apache.hc.core5.http.io.entity.StringEntity(
+                        "{\"query\":\"{ message(mailbox:\\\"" + mailbox + "\\\", id:\\\"" + msgId + "\\\") { id html } }\"}"));
+                String msgResp = org.apache.hc.core5.http.io.entity.EntityUtils.toString(
+                        client.execute(msgReq).getEntity());
+
+                String html = mapper.readTree(msgResp).path("data").path("message").path("html").asText();
+
+                // Extract OTP from <strong>XXXXXX</strong>
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("<strong>(\\d{6})</strong>").matcher(html);
+                if (m.find()) {
+                    otp = m.group(1);
+                    break;
+                }
+                // Fallback pattern
+                java.util.regex.Matcher m2 = java.util.regex.Pattern.compile("is\\s+(\\d{6})").matcher(html);
+                if (m2.find()) {
+                    otp = m2.group(1);
+                    break;
+                }
+            }
+            client.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to fetch OTP from Maildrop API for: " + loginEmail, e);
+        }
+
+        if (otp == null) {
+            throw new RuntimeException("OTP not received for: " + loginEmail);
+        }
+
+        log.info("Extracted OTP from Maildrop API: {}", otp);
         log.info("OTP extracted: {}", otp);
 
-        // Close Yopmail tab and switch back to main tab
-        driver.switchTo().defaultContent();
-        ArrayList<String> tabs = new ArrayList<>(driver.getWindowHandles());
-        driver.switchTo().window(tabs.get(1)).close();
-        driver.switchTo().window(tabs.get(0));
-        safeSleep(1000);
-
-        // Enter OTP in the login form (use fresh locator after tab switch)
+        // Enter OTP in the login form
+        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(LONG_WAIT));
         WebElement otpInput;
         try {
             otpInput = longWait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#otp-field-3")));
         } catch (Exception e) {
-            // Fallback: try alternative OTP field locators
             otpInput = longWait.until(ExpectedConditions.visibilityOfElementLocated(
-                    By.xpath("//input[contains(@id,'otp-field')] | //input[contains(@class,'otp')]")));
+                    By.xpath("//input[contains(@id,'otp')]")));
         }
-        otpInput.clear();
         otpInput.sendKeys(otp);
         log.info("OTP entered in login form");
     }

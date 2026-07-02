@@ -231,49 +231,32 @@ public class RegistrationPage extends BasePage {
      * Open Yopmail in new tab, fetch OTP, come back and verify.
      */
     public void fetchAndVerifyOTP() throws InterruptedException {
-        // Open new tab for Yopmail
-        driver.switchTo().newWindow(WindowType.TAB);
-        driver.get(config.getDummyEmailUrl());
-
-        // Enter email prefix
-        if (yopmailInbox.isDisplayed()) {
-            yopmailInbox.clear();
+        // Fetch OTP via Maildrop API (no browser tab needed — much more reliable on CI)
+        String mailbox = email.split("@")[0];
+        String otp;
+        try {
+            otp = fetchOTPViaAPI(mailbox);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to fetch OTP for " + email + ": " + e.getMessage(), e);
         }
-        String emailPrefix = email.split("@")[0];
-        yopmailInbox.sendKeys(emailPrefix);
-        yopmailGoBtn.click();
-        yopmailRefresh.click();
-
-        // Get OTP from email
-        driver.switchTo().frame("ifmail");
-        String otpText = otpEmail.getText();
-        String otp = otpText.split("\\. This")[0].trim().split(" is ")[1].trim();
         System.out.println("Email: " + email + " | OTP: " + otp);
-
-        // Close tab and switch back
-        ArrayList<String> tabs = new ArrayList<>(driver.getWindowHandles());
-        driver.switchTo().window(tabs.get(1)).close();
-        driver.switchTo().window(tabs.get(0));
 
         // Enter OTP and verify
         otpField.sendKeys(otp);
         safeClick(verifyOtpBtn);
 
-        // Wait for OTP verification to complete — the server processes the OTP
-        // and then either redirects to the registration form OR shows an error.
-        // On CI (overseas), this server-side processing takes significantly longer.
+        // Wait for OTP verification to complete
         Thread.sleep(5000);
         waitForPageLoad();
 
-        // Additional wait: keep checking until the registration form appears or timeout
+        // Wait for registration form to appear
         int verifyTimeout = Boolean.parseBoolean(System.getProperty("ciMode", "false")) ? 30 : 10;
         try {
             new WebDriverWait(driver, Duration.ofSeconds(verifyTimeout)).until(
                     d -> d.findElements(By.id("firstname")).size() > 0
-                            || d.findElements(By.xpath("//input[@id='firstname']")).size() > 0
                             || d.getCurrentUrl().contains("register"));
         } catch (Exception e) {
-            // If still not on form, the OTP verify might have failed — click verify again
+            // Retry: click verify again if form doesn't appear
             try {
                 WebElement verifyBtn = driver.findElement(By.xpath("//button[@id='btn-verify-otp']"));
                 if (verifyBtn.isDisplayed()) {
@@ -501,6 +484,60 @@ public class RegistrationPage extends BasePage {
                 .replace(" ", "")
                 .replace("'", "")
                 .replace(".", "");
-        return name + "@yopmail.com";
+        return name + "@maildrop.cc";
+    }
+
+    /**
+     * Fetch OTP from Maildrop.cc GraphQL API (no browser needed).
+     * Polls the inbox for a new message containing the OTP.
+     */
+    private String fetchOTPViaAPI(String mailbox) throws Exception {
+        org.apache.hc.client5.http.impl.classic.CloseableHttpClient client =
+                org.apache.hc.client5.http.impl.classic.HttpClients.createDefault();
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+        // Poll for new email (max 45 seconds)
+        for (int attempt = 1; attempt <= 15; attempt++) {
+            Thread.sleep(3000);
+
+            org.apache.hc.client5.http.classic.methods.HttpPost listReq =
+                    new org.apache.hc.client5.http.classic.methods.HttpPost("https://api.maildrop.cc/graphql");
+            listReq.setHeader("Content-Type", "application/json");
+            listReq.setEntity(new org.apache.hc.core5.http.io.entity.StringEntity(
+                    "{\"query\":\"{ inbox(mailbox:\\\"" + mailbox + "\\\") { id } }\"}"));
+            String listResp = org.apache.hc.core5.http.io.entity.EntityUtils.toString(
+                    client.execute(listReq).getEntity());
+
+            com.fasterxml.jackson.databind.JsonNode inbox = mapper.readTree(listResp).path("data").path("inbox");
+            if (inbox.size() == 0) continue;
+
+            // Get the newest message
+            String msgId = inbox.get(0).get("id").asText();
+
+            org.apache.hc.client5.http.classic.methods.HttpPost msgReq =
+                    new org.apache.hc.client5.http.classic.methods.HttpPost("https://api.maildrop.cc/graphql");
+            msgReq.setHeader("Content-Type", "application/json");
+            msgReq.setEntity(new org.apache.hc.core5.http.io.entity.StringEntity(
+                    "{\"query\":\"{ message(mailbox:\\\"" + mailbox + "\\\", id:\\\"" + msgId + "\\\") { id html } }\"}"));
+            String msgResp = org.apache.hc.core5.http.io.entity.EntityUtils.toString(
+                    client.execute(msgReq).getEntity());
+
+            String html = mapper.readTree(msgResp).path("data").path("message").path("html").asText();
+
+            // Extract OTP from <strong>XXXXXX</strong> or " is XXXXXX."
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("<strong>(\\d{6})</strong>").matcher(html);
+            if (m.find()) {
+                client.close();
+                return m.group(1);
+            }
+            // Fallback pattern: "is XXXXXX."
+            java.util.regex.Matcher m2 = java.util.regex.Pattern.compile("is\\s+(\\d{6})").matcher(html);
+            if (m2.find()) {
+                client.close();
+                return m2.group(1);
+            }
+        }
+        client.close();
+        throw new RuntimeException("Failed to fetch OTP from Maildrop API for: " + mailbox);
     }
 }
