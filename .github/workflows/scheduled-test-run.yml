@@ -11,7 +11,7 @@ on:
 jobs:
   run-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
 
     steps:
       - name: Checkout code
@@ -24,10 +24,8 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Install Chrome & xvfb
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb
+      - name: Install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
 
       - name: Run Full Test Suite
         id: test_run
@@ -55,6 +53,8 @@ jobs:
               if grep -q "name=\"$method\"" "$REPORT_FILE" 2>/dev/null; then
                 if grep -A2 "name=\"$method\"" "$REPORT_FILE" | grep -q 'status="FAIL"'; then
                   FAILED=$((FAILED + 1))
+                elif grep -A2 "name=\"$method\"" "$REPORT_FILE" | grep -q 'status="SKIP"'; then
+                  SKIPPED=$((SKIPPED + 1))
                 else
                   PASSED=$((PASSED + 1))
                 fi
@@ -62,7 +62,7 @@ jobs:
                 SKIPPED=$((SKIPPED + 1))
               fi
             done
-            TOTAL=$((PASSED + FAILED))
+            TOTAL=$((PASSED + FAILED + SKIPPED))
           else
             TOTAL="N/A"
             PASSED="N/A"
@@ -125,6 +125,8 @@ jobs:
             if grep -q "name=\"$method\"" "$REPORT_FILE" 2>/dev/null; then
               if grep -A2 "name=\"$method\"" "$REPORT_FILE" | grep -q 'status="FAIL"'; then
                 echo "<span style=\"color:#dc3545;font-weight:bold\">&#10008; FAIL</span>"
+              elif grep -A2 "name=\"$method\"" "$REPORT_FILE" | grep -q 'status="SKIP"'; then
+                echo "<span style=\"color:#ffc107;font-weight:bold\">&#9654; SKIP</span>"
               else
                 echo "<span style=\"color:#28a745;font-weight:bold\">&#10004; PASS</span>"
               fi

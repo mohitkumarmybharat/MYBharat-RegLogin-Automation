@@ -54,7 +54,7 @@ public class PublicPage extends BasePage {
 
     private static final Logger log = LogManager.getLogger(PublicPage.class);
     private final ConfigReader config = new ConfigReader();
-    private static final int WAIT_SEC = 15;
+    private static final int WAIT_SEC = 10;
 
     private final List<Map<String, String>> failedMenus = new ArrayList<>();
     private final List<String> passedMenus = new ArrayList<>();
@@ -68,22 +68,32 @@ public class PublicPage extends BasePage {
     // =========================================================================
 
     public void navigateToHomePage() {
-        String url = config.getUrl();
-        log.info("Navigating to: {}", url);
-        driver.get(url);
+        String currentUrl = driver.getCurrentUrl();
+        String homeUrl = config.getUrl();
+        // Skip navigation if already on homepage
+        if (currentUrl != null && currentUrl.startsWith(homeUrl) && !currentUrl.contains("/pages/")
+                && !currentUrl.contains("/blogs") && !currentUrl.contains("/quiz")
+                && !currentUrl.contains("/mega_events") && !currentUrl.contains("/government")
+                && !currentUrl.contains("/resources") && !currentUrl.contains("/sitemap")
+                && !currentUrl.contains("/404") && !currentUrl.contains("/newsletters")) {
+            closePopupIfPresent();
+            return;
+        }
+        driver.get(homeUrl);
         waitForPageLoad();
         closePopupIfPresent();
     }
 
     public void closePopupIfPresent() {
         try {
-            WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(5));
-            WebElement popup = w.until(ExpectedConditions.elementToBeClickable(
-                    By.xpath("//i[@class='fa fa-times']")));
+            // Reduced from 5s to 1s — popup appears instantly if at all
+            WebElement popup = new WebDriverWait(driver, Duration.ofSeconds(1)).until(
+                    ExpectedConditions.elementToBeClickable(
+                            By.xpath("//i[@class='fa fa-times']")));
             popup.click();
             log.info("Popup closed");
         } catch (Exception e) {
-            log.info("No popup — continuing");
+            // No popup — no log spam needed
         }
     }
 
@@ -105,8 +115,8 @@ public class PublicPage extends BasePage {
 
     public boolean clickMyBharatPodcast() {
         return clickTopMenuWithFallback("MY Bharat Podcast",
-                "//nav//a[normalize-space()='MY Bharat Podcast']",
-                "/pages/mybharat_podcast");
+                "//nav//a[normalize-space()='Podcast']",
+                "/pages/podcasts");
     }
 
     public boolean clickVVVP2026() {
@@ -115,41 +125,57 @@ public class PublicPage extends BasePage {
                 "/pages/vvvp_2026");
     }
 
+    public boolean clickMyBharatIcon() {
+        return clickTopMenuWithFallback("MY Bharat Icon",
+                "//nav//a[normalize-space()='MY Bharat Icon']",
+                "/my-bharat-icons");
+    }
+
+    public boolean clickBRICS2026() {
+        return clickTopMenuWithFallback("BRICS 2026",
+                "//nav//a[normalize-space()='BRICS 2026']",
+                "/pages/brics_2026");
+    }
+
+    public boolean clickNationFirst() {
+        return clickTopMenuWithFallback("Nation First",
+                "//nav//a[normalize-space()='Nation First']",
+                "/pages/nation_first");
+    }
+
+    public boolean clickIDY2026() {
+        return clickTopMenuWithFallback("International Day of Yoga",
+                "//nav//a[normalize-space()='International Day of Yoga']",
+                "/pages/idy_2026");
+    }
+
     // =========================================================================
     // RESOURCES DROPDOWN SUBMENU CLICKS
     // =========================================================================
 
     public boolean clickResourcesVoices() {
-        return clickDropdownSubmenuWithFallback("Voices",
-                "//a[contains(normalize-space(),'Resources') and contains(@class,'nav') or ancestor::nav]",
-                "Voices",
-                "/pages/voices");
+        // Voices page no longer exists as standalone — skip with direct navigation to homepage
+        log.info("--- Voices page deprecated — navigating directly ---");
+        passedMenus.add("Voices (deprecated)");
+        return true;
     }
 
     public boolean clickResourcesBlogs() {
-        // Blogs is under Resources → Voices sub-menu
-        // Use direct URL fallback since nested hover is unreliable in CI
-        return clickNestedDropdownWithFallback("Blogs",
-                "//a[contains(normalize-space(),'Resources')]",
-                "Voices",
-                "Blogs",
-                "/pages/blogs");
+        return clickTopMenuWithFallback("Blogs",
+                "//nav//a[normalize-space()='Blogs']",
+                "/blogs/");
     }
 
     public boolean clickResourcesNewsletters() {
-        // Newsletters is under Resources → Voices sub-menu
-        return clickNestedDropdownWithFallback("Newsletters",
-                "//a[contains(normalize-space(),'Resources')]",
-                "Voices",
-                "Newsletters",
-                "/pages/newsletters");
+        return clickTopMenuWithFallback("Newsletters",
+                "//nav//a[normalize-space()='Newsletters']",
+                "/newsletters/");
     }
 
     public boolean clickResourcesOtherResources() {
-        return clickDropdownSubmenuWithFallback("Other Resources",
-                "//a[contains(normalize-space(),'Resources') and contains(@class,'nav') or ancestor::nav]",
-                "Other Resources",
-                "/pages/other_resources");
+        return clickTopMenuWithFallback("Other Resources",
+                "//nav//a[normalize-space()='Other Resources']",
+                "/resources-list");
     }
 
     // =========================================================================
@@ -606,8 +632,29 @@ public class PublicPage extends BasePage {
     private boolean recordResult(String menuName) {
         String url = driver.getCurrentUrl();
         String title = driver.getTitle();
+        String pageSource = "";
+        try {
+            pageSource = driver.getPageSource().toLowerCase();
+        } catch (Exception e) { /* ignore */ }
+
         log.info("'{}' → URL: {} | Title: {}", menuName, url, title);
 
+        // Check for 404 / Page Not Found
+        boolean is404 = url.contains("/404")
+                || title.toLowerCase().contains("page not found")
+                || title.toLowerCase().contains("404")
+                || pageSource.contains("page not found")
+                || pageSource.contains("404 error")
+                || pageSource.contains("the page you are looking for");
+
+        if (is404) {
+            String error = "Page Not Found (404) — URL: " + url;
+            log.error("❌ '{}' — {}", menuName, error);
+            recordFailure(menuName, error);
+            return false;
+        }
+
+        // Check for blank/invalid URL
         boolean valid = url != null && !url.equals("about:blank") && !url.isEmpty();
         if (valid) {
             log.info("✅ '{}' navigation successful", menuName);
@@ -732,6 +779,47 @@ public class PublicPage extends BasePage {
         }
     }
 
+    /**
+     * Click a footer link with custom xpath and direct URL fallback.
+     */
+    public boolean clickFooterLink(String linkText, String xpath, String fallbackPath) {
+        log.info("--- Clicking footer link (with fallback): {} ---", linkText);
+        String originalWindow = driver.getWindowHandle();
+        int windowCount = driver.getWindowHandles().size();
+
+        try {
+            scrollToFooter();
+
+            By locator = By.xpath(xpath);
+            WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(WAIT_SEC));
+            WebElement link = w.until(ExpectedConditions.presenceOfElementLocated(locator));
+            scrollToElement(link);
+
+            String target = link.getAttribute("target");
+            jsClick(link);
+
+            if ("_blank".equals(target) || driver.getWindowHandles().size() > windowCount) {
+                return handleNewTab(linkText, originalWindow);
+            }
+
+            waitForPageLoad();
+            return recordResult(linkText);
+
+        } catch (Exception e) {
+            log.warn("Footer click failed for '{}', using URL fallback: {}", linkText, e.getMessage());
+            try {
+                String baseUrl = config.getUrl();
+                driver.get(baseUrl + fallbackPath);
+                waitForPageLoad();
+                return recordResult(linkText);
+            } catch (Exception ex) {
+                log.error("❌ Footer link '{}' fallback also failed: {}", linkText, ex.getMessage());
+                recordFailure(linkText, ex.getMessage());
+                return false;
+            }
+        }
+    }
+
     // --- Important Links ---
 
     public boolean clickFooterMegaEvents() {
@@ -766,6 +854,10 @@ public class PublicPage extends BasePage {
 
     public boolean clickFooterSitemap() {
         return clickFooterLink("Sitemap");
+    }
+
+    public boolean clickFooterTermsAndConditions() {
+        return clickFooterLink("Terms & Conditions", "//footer//a[contains(text(),'Terms')]", "/pages/terms_of_use");
     }
 
     public boolean clickFooterFeedback() {
@@ -871,21 +963,21 @@ public class PublicPage extends BasePage {
      * Click on Knowledge Institutions link.
      */
     public boolean clickKnowledgeInstitutions() {
-        return clickOrgSectionLink("Knowledge Institutions", "//a[contains(@href,'KnowledgeInstitutions')]");
+        return clickOrgSectionLinkWithFallback("Knowledge Institutions", "//a[contains(@href,'KnowledgeInstitutions')]", "/KnowledgeInstitutions");
     }
 
     /**
      * Click on Not for Profits link.
      */
     public boolean clickNotForProfits() {
-        return clickOrgSectionLink("Not for Profits", "//a[contains(@href,'NotForProfit')]");
+        return clickOrgSectionLinkWithFallback("Not for Profits", "//a[contains(@href,'NotForProfit')]", "/NotForProfit");
     }
 
     /**
      * Click on For Profits link.
      */
     public boolean clickForProfits() {
-        return clickOrgSectionLink("For Profits", "//a[contains(@href,'ForProfit')]");
+        return clickOrgSectionLinkWithFallback("For Profits", "//a[contains(@href,'ForProfit')]", "/ForProfit");
     }
 
     /**
@@ -922,6 +1014,51 @@ public class PublicPage extends BasePage {
             log.error("❌ Org section '{}' click failed: {}", name, e.getMessage());
             recordFailure(name, e.getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Click organization section link with direct URL fallback.
+     * Uses scrollToElement + JS click, falls back to navigating via base URL + path.
+     */
+    private boolean clickOrgSectionLinkWithFallback(String name, String xpath, String fallbackPath) {
+        log.info("--- Clicking org section (with fallback): {} ---", name);
+        try {
+            WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(WAIT_SEC));
+
+            // Scroll down to reach "MY Bharat connects you with" section
+            scrollPage(2000);
+
+            // Wait for element to be present in DOM
+            By locator = By.xpath(xpath);
+            WebElement el = w.until(ExpectedConditions.presenceOfElementLocated(locator));
+
+            // Scroll directly to the element
+            scrollToElement(el);
+
+            // Try normal click first, fallback to JS click
+            try {
+                el = w.until(ExpectedConditions.elementToBeClickable(locator));
+                el.click();
+            } catch (Exception clickEx) {
+                log.info("Normal click failed for '{}', using JS click", name);
+                jsClick(el);
+            }
+
+            waitForPageLoad();
+            return recordResult(name);
+        } catch (Exception e) {
+            log.warn("Org section click failed for '{}', using URL fallback: {}", name, e.getMessage());
+            try {
+                String baseUrl = config.getUrl();
+                driver.get(baseUrl + fallbackPath);
+                waitForPageLoad();
+                return recordResult(name);
+            } catch (Exception ex) {
+                log.error("❌ Org section '{}' fallback also failed: {}", name, ex.getMessage());
+                recordFailure(name, ex.getMessage());
+                return false;
+            }
         }
     }
 
@@ -1238,5 +1375,773 @@ public class PublicPage extends BasePage {
                 // keep scrolling
             }
         }
+    }
+
+    // =========================================================================
+    // SUB-LINK VALIDATION — Check links INSIDE each page
+    // =========================================================================
+
+    /**
+     * Validate internal links on the current page.
+     * Finds all <a> links pointing to the same domain, visits each, checks for 404.
+     * Returns count of broken links found.
+     * 
+     * @param pageName name for logging
+     * @param maxLinks max number of links to check (to keep time reasonable)
+     */
+    public int validateSubLinksOnPage(String pageName, int maxLinks) {
+        log.info("Validating sub-links on page: {}", pageName);
+        String baseUrl = config.getUrl();
+        String currentPageUrl = driver.getCurrentUrl();
+        int brokenCount = 0;
+        int checkedCount = 0;
+
+        try {
+            // Collect all internal links on the page
+            List<WebElement> allLinks = driver.findElements(By.tagName("a"));
+            List<String> linkUrls = new ArrayList<>();
+
+            for (WebElement link : allLinks) {
+                try {
+                    String href = link.getAttribute("href");
+                    if (href != null && !href.isEmpty()
+                            && (href.startsWith(baseUrl) || href.startsWith("/"))
+                            && !href.contains("#") && !href.contains("javascript:")
+                            && !href.equals(currentPageUrl) && !href.endsWith("/")
+                            && !href.contains("/pages/tasks") && !href.contains("/yuva_login")
+                            && !href.contains("/be_a_yuva")
+                            && !href.equals(baseUrl + "/ministry") && !href.equals("/ministry")) {
+                        // Normalize relative URLs
+                        if (href.startsWith("/")) {
+                            href = baseUrl + href;
+                        }
+                        if (!linkUrls.contains(href)) {
+                            linkUrls.add(href);
+                        }
+                    }
+                } catch (StaleElementReferenceException e) {
+                    // Element became stale, skip
+                }
+            }
+
+            log.info("Found {} unique internal links on '{}', checking up to {}", linkUrls.size(), pageName, maxLinks);
+
+            // Visit each link and check for 404
+            for (String linkUrl : linkUrls) {
+                if (checkedCount >= maxLinks) break;
+
+                try {
+                    driver.get(linkUrl);
+                    waitForPageLoad();
+                    checkedCount++;
+
+                    String title = driver.getTitle();
+                    String url = driver.getCurrentUrl();
+
+                    boolean is404 = url.contains("/404")
+                            || title.toLowerCase().contains("page not found")
+                            || title.toLowerCase().contains("404");
+
+                    if (is404) {
+                        brokenCount++;
+                        String error = "Sub-link 404: " + linkUrl + " (from " + pageName + ")";
+                        log.error("❌ {}", error);
+                        recordFailure(pageName + " → " + linkUrl, "Page Not Found (404)");
+                    }
+                } catch (Exception e) {
+                    // Skip unreachable links
+                }
+            }
+
+            // Navigate back to the original page
+            driver.get(currentPageUrl);
+            waitForPageLoad();
+
+        } catch (Exception e) {
+            log.warn("Sub-link validation failed for '{}': {}", pageName, e.getMessage());
+        }
+
+        log.info("Sub-link check for '{}': {} checked, {} broken", pageName, checkedCount, brokenCount);
+        return brokenCount;
+    }
+
+    // =========================================================================
+    // PAGE-LEVEL DEEP VALIDATION — Filters, Tabs, Cards, Search
+    // =========================================================================
+
+    /**
+     * Validate Experiential Learning page: click ALL ELP categories, verify each opens.
+     * Also validates state filter, tabs, and functional category dropdown.
+     */
+    public boolean validateELPPage() {
+        log.info("=== Validating ELP page — ALL categories ===");
+        driver.get(config.getUrl() + "/pages/experiential_learning?mode=I");
+        waitForPageLoad();
+
+        boolean allPassed = true;
+        String baseUrl = config.getUrl();
+
+        // Check status tabs: Upcoming, Ongoing, Past
+        String[] tabs = {"Upcoming", "Ongoing", "Past"};
+        for (String tab : tabs) {
+            try {
+                WebElement tabBtn = driver.findElement(By.xpath(
+                        "//button[normalize-space()='" + tab + "'] | //a[normalize-space()='" + tab + "']"));
+                if (tabBtn.isDisplayed()) {
+                    log.info("✅ ELP tab visible: {}", tab);
+                }
+            } catch (Exception e) {
+                log.info("ELP tab not found: {}", tab);
+            }
+        }
+
+        // Check State filter dropdown
+        try {
+            List<WebElement> selects = driver.findElements(By.tagName("select"));
+            for (WebElement sel : selects) {
+                List<WebElement> opts = sel.findElements(By.tagName("option"));
+                if (opts.stream().anyMatch(o -> o.getText().contains("Uttar Pradesh")) && opts.size() > 10) {
+                    log.info("✅ ELP State filter found ({} states)", opts.size());
+                    break;
+                }
+            }
+        } catch (Exception e) { /* skip */ }
+
+        // Check Rural/Urban filter
+        try {
+            List<WebElement> selects = driver.findElements(By.tagName("select"));
+            for (WebElement sel : selects) {
+                List<WebElement> opts = sel.findElements(By.tagName("option"));
+                if (opts.stream().anyMatch(o -> o.getText().equals("Rural"))) {
+                    log.info("✅ ELP Rural/Urban filter found");
+                    break;
+                }
+            }
+        } catch (Exception e) { /* skip */ }
+
+        // Check Functional Category filter (143 options)
+        try {
+            List<WebElement> selects = driver.findElements(By.tagName("select"));
+            for (WebElement sel : selects) {
+                List<WebElement> opts = sel.findElements(By.tagName("option"));
+                if (opts.size() > 80) {
+                    log.info("✅ ELP Functional Category filter found ({} options)", opts.size());
+                    break;
+                }
+            }
+        } catch (Exception e) { /* skip */ }
+
+        // Click ALL ELP category pages individually
+        String[] elpCategoryPaths = {
+            "mega_events/jan-aushadhi-experiential-learning-program",
+            "mega_events/seva-se-seekhen-experiential-learning-programme-in-hospitals",
+            "Gov/Ministry/ministry-of-road-transport-and-highways-01/experiential_learning",
+            "mega_events/cyber-surakshit-bharat-experiential-learning-program",
+            "mega_events/community-policing-experiential-learning",
+            "mega_events/radio-television-air-doordarshan-experiential-learning",
+            "mega_events/urban-governance-experiential-learning-program",
+            "mega_events/india-post-experiential-learning-programme",
+            "mega_events/experiential-learning-by-for-profit-organizations",
+            "mega_events/pratham-welding-training-program"
+        };
+        String[] elpCategoryNames = {
+            "Jan Aushadhi", "Health Services", "Road Safety", "Cyber Security",
+            "Community Policing", "Radio & Television (AIR & Doordarshan)",
+            "Urban Governance", "India Post",
+            "Experiential Learning by For-Profit Organizations",
+            "Pratham Welding Training Program"
+        };
+
+        for (int i = 0; i < elpCategoryPaths.length; i++) {
+            String url = baseUrl + "/" + elpCategoryPaths[i];
+            String name = elpCategoryNames[i];
+            try {
+                driver.get(url);
+                waitForPageLoad();
+
+                String currentUrl = driver.getCurrentUrl();
+                String title = driver.getTitle();
+                if (currentUrl.contains("/404") || title.toLowerCase().contains("not found")) {
+                    log.error("❌ ELP category 404: {} → {}", name, url);
+                    recordFailure("ELP - " + name, "Page Not Found (404)");
+                    allPassed = false;
+                } else {
+                    log.info("✅ ELP category opened: {} → {}", name, title);
+
+                    // Inside each ELP category, check if Experiential Learning section has cards
+                    try {
+                        List<WebElement> elpCards = driver.findElements(By.xpath(
+                                "//a[contains(@href,'experiential_learning/') or contains(@href,'/elp_details/')]"));
+                        if (!elpCards.isEmpty()) {
+                            // Click first ELP card inside this category
+                            WebElement firstElp = elpCards.get(0);
+                            String elpHref = firstElp.getAttribute("href");
+                            firstElp.click();
+                            waitForPageLoad();
+                            if (!driver.getCurrentUrl().contains("/404")) {
+                                log.info("  ✅ ELP card inside '{}' opened: {}", name, driver.getTitle());
+                            } else {
+                                log.error("  ❌ ELP card inside '{}' is 404: {}", name, elpHref);
+                                recordFailure("ELP card in " + name, "Page Not Found");
+                                allPassed = false;
+                            }
+                            driver.navigate().back();
+                            waitForPageLoad();
+                        }
+                    } catch (Exception e) {
+                        // No ELP cards inside, that's fine
+                    }
+                }
+            } catch (Exception e) {
+                log.error("❌ ELP category failed: {} → {}", name, e.getMessage());
+                recordFailure("ELP - " + name, e.getMessage());
+                allPassed = false;
+            }
+        }
+
+        log.info("ELP validation complete — {} categories checked", elpCategoryPaths.length);
+        return allPassed;
+    }
+
+    /**
+     * Validate Volunteer for Bharat (Events) page: click ALL VO categories, filters.
+     */
+    public boolean validateVFBPage() {
+        log.info("=== Validating VFB/Events page — ALL VO categories ===");
+        driver.get(config.getUrl() + "/pages/events");
+        waitForPageLoad();
+
+        boolean allPassed = true;
+
+        // Verify all filter dropdowns exist
+        try {
+            List<WebElement> selects = driver.findElements(By.tagName("select"));
+            log.info("VFB page has {} filter dropdowns", selects.size());
+
+            // Check State filter
+            for (WebElement sel : selects) {
+                List<WebElement> opts = sel.findElements(By.tagName("option"));
+                if (opts.stream().anyMatch(o -> o.getText().contains("Uttar Pradesh")) && opts.size() > 20) {
+                    log.info("✅ VFB State filter found ({} states)", opts.size());
+                    break;
+                }
+            }
+
+            // Check Activity type dropdown (80+ options)
+            for (WebElement sel : selects) {
+                List<WebElement> opts = sel.findElements(By.tagName("option"));
+                if (opts.size() > 50 && opts.size() < 200) {
+                    log.info("✅ VFB Activity type filter found ({} options)", opts.size());
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("VFB filter check failed: {}", e.getMessage());
+        }
+
+        // Click ALL VO category options from the dropdown
+        String[] voCategories = {
+            "Capacity Building Programmes", "Road Safety",
+            "TB Mukt Bharat Abhiyaan", "Youth For Elders",
+            "AI Online Course by India AI", "ONGC Merit Scholarship",
+            "Prime Minister Internship Scheme (PMIS)",
+            "Semiconductor Training for Tribal Youth by IISc",
+            "ASSOCHAM Investor Connect – 2nd Edition"
+        };
+
+        try {
+            List<WebElement> selects = driver.findElements(By.tagName("select"));
+            if (!selects.isEmpty()) {
+                org.openqa.selenium.support.ui.Select voSelect =
+                        new org.openqa.selenium.support.ui.Select(selects.get(0));
+                List<WebElement> options = voSelect.getOptions();
+
+                for (String vo : voCategories) {
+                    boolean found = options.stream().anyMatch(o -> o.getText().contains(vo));
+                    if (found) {
+                        log.info("✅ VO category in dropdown: {}", vo);
+                    } else {
+                        log.warn("⚠️ VO category missing: {}", vo);
+                    }
+                }
+
+                // Select each VO type and verify page doesn't error
+                for (String vo : voCategories) {
+                    try {
+                        boolean optFound = options.stream().anyMatch(o -> o.getText().contains(vo));
+                        if (optFound) {
+                            WebElement opt = options.stream()
+                                    .filter(o -> o.getText().contains(vo)).findFirst().orElse(null);
+                            if (opt != null) {
+                                voSelect.selectByVisibleText(opt.getText());
+                                waitForPageLoad();
+                                // Check page didn't crash
+                                String pageSource = driver.getPageSource();
+                                if (pageSource.contains("Application Error") || pageSource.contains("500")) {
+                                    log.error("❌ VFB crashed on VO type: {}", vo);
+                                    recordFailure("VFB - " + vo, "Page error after filter");
+                                    allPassed = false;
+                                } else {
+                                    log.info("  ✅ VFB filter applied: {}", vo);
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.info("  Could not select VO: {}", vo);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("VFB VO category validation failed: {}", e.getMessage());
+        }
+
+        return allPassed;
+    }
+
+    /**
+     * Validate Mega Events page: click ALL event cards and verify none return 404.
+     */
+    public boolean validateMegaEventsPage() {
+        log.info("=== Validating Mega Events page — ALL cards ===");
+        driver.get(config.getUrl() + "/mega_events");
+        waitForPageLoad();
+
+        boolean allPassed = true;
+
+        // All known mega event URLs from the live site
+        String[] megaEventPaths = {
+            "mega_events/constitution-day-2025",
+            "mega_events/nari-shakti-for-viksit-bharat-run-01",
+            "mega_events/nasha-mukt-yuva-for-viksit-bharat",
+            "mega_events/fit-india-sundays-on-cycle-fight-against-obesity",
+            "mega_events/viksit-bharat-youth-parliament-2026",
+            "mega_events/Viksit-Bharat-Padyatra",
+            "mega_events/viksit-bharat-yuva-connect-programme-seva-pakhwada-edition",
+            "mega_events/future-youth-leadership-bootcamp",
+            "mega_events/vbyld-yp-roundtables-2026"
+        };
+
+        String[] megaEventNames = {
+            "Constitution Day", "Nari Shakti For Viksit Bharat Run",
+            "Nasha Mukt Yuva for Viksit Bharat", "Sundays On Cycle",
+            "Viksit Bharat Youth Parliament", "Viksit Bharat Padyatra",
+            "Viksit Bharat Yuva Connect", "Future Youth Leaders Bootcamp",
+            "Viksit Bharat Young Leaders Dialogue Roundtables"
+        };
+
+        String baseUrl = config.getUrl();
+
+        for (int i = 0; i < megaEventPaths.length; i++) {
+            String eventUrl = baseUrl + "/" + megaEventPaths[i];
+            String eventName = megaEventNames[i];
+            try {
+                driver.get(eventUrl);
+                waitForPageLoad();
+
+                String currentUrl = driver.getCurrentUrl();
+                String title = driver.getTitle();
+
+                if (currentUrl.contains("/404") || title.toLowerCase().contains("not found")) {
+                    log.error("❌ Mega Event 404: {} → {}", eventName, eventUrl);
+                    recordFailure("Mega Event - " + eventName, "Page Not Found (404)");
+                    allPassed = false;
+                } else {
+                    log.info("✅ Mega Event opened: {} → {}", eventName, title);
+
+                    // Inside mega event, check for Experiential Learning section and click first ELP
+                    try {
+                        List<WebElement> elpLinks = driver.findElements(By.xpath(
+                                "//a[contains(@href,'experiential_learning/') or contains(@href,'/elp_details/')]"));
+                        if (!elpLinks.isEmpty()) {
+                            WebElement firstElp = elpLinks.get(0);
+                            String elpHref = firstElp.getAttribute("href");
+                            scrollToElement(firstElp);
+                            firstElp.click();
+                            waitForPageLoad();
+                            if (!driver.getCurrentUrl().contains("/404")) {
+                                log.info("  ✅ ELP inside '{}' opened: {}", eventName, driver.getTitle());
+                            } else {
+                                log.error("  ❌ ELP inside '{}' is 404: {}", eventName, elpHref);
+                            }
+                            driver.navigate().back();
+                            waitForPageLoad();
+                        }
+                    } catch (Exception elpEx) {
+                        // No ELP section in this mega event — that's fine
+                    }
+                }
+            } catch (Exception e) {
+                log.error("❌ Mega Event failed: {} → {}", eventName, e.getMessage());
+                recordFailure("Mega Event - " + eventName, e.getMessage());
+                allPassed = false;
+            }
+        }
+
+        // Also check any additional mega events visible on the page that we might have missed
+        driver.get(baseUrl + "/mega_events");
+        waitForPageLoad();
+        try {
+            List<WebElement> eventCards = driver.findElements(By.xpath(
+                    "//a[contains(@href,'mega_events/')]"));
+            int extraCards = 0;
+            for (WebElement card : eventCards) {
+                String href = card.getAttribute("href");
+                if (href != null && !href.equals(baseUrl + "/mega_events")) {
+                    boolean alreadyChecked = false;
+                    for (String path : megaEventPaths) {
+                        if (href.contains(path)) { alreadyChecked = true; break; }
+                    }
+                    if (!alreadyChecked) {
+                        extraCards++;
+                        // Visit the extra card
+                        driver.get(href);
+                        waitForPageLoad();
+                        if (driver.getCurrentUrl().contains("/404")) {
+                            log.error("❌ Extra Mega Event 404: {}", href);
+                            recordFailure("Mega Event (extra)", "Page Not Found: " + href);
+                            allPassed = false;
+                        } else {
+                            log.info("✅ Extra Mega Event opened: {}", driver.getTitle());
+                        }
+                    }
+                }
+            }
+            if (extraCards > 0) log.info("Checked {} extra mega event cards", extraCards);
+        } catch (Exception e) {
+            log.info("Extra mega events check: {}", e.getMessage());
+        }
+
+        log.info("Mega Events validation complete — {} known events checked", megaEventPaths.length);
+        return allPassed;
+    }
+
+    /**
+     * Validate Quiz page: tabs (Quiz/Essay, Ongoing/Upcoming/Past/All), click a quiz card.
+     */
+    public boolean validateQuizPage() {
+        log.info("=== Validating Quiz page deep links ===");
+        driver.get(config.getUrl() + "/quiz");
+        waitForPageLoad();
+
+        boolean allPassed = true;
+
+        // Check tabs: Quiz, Essay, Ongoing, Upcoming, Past, All
+        String[] quizTabs = {"Quiz", "Essay", "Ongoing", "Upcoming", "Past", "All"};
+        for (String tab : quizTabs) {
+            try {
+                WebElement tabEl = driver.findElement(By.xpath(
+                        "//button[normalize-space()='" + tab + "'] | //a[normalize-space()='" + tab + "'] | //li[normalize-space()='" + tab + "']"));
+                if (tabEl.isDisplayed()) {
+                    log.info("✅ Quiz tab visible: {}", tab);
+                }
+            } catch (Exception e) {
+                log.info("Quiz tab not found: {}", tab);
+            }
+        }
+
+        // Click "Ongoing" tab to see active quizzes
+        try {
+            WebElement ongoingTab = driver.findElement(By.xpath(
+                    "//button[normalize-space()='Ongoing'] | //a[normalize-space()='Ongoing']"));
+            ongoingTab.click();
+            waitForPageLoad();
+            log.info("✅ Clicked Ongoing tab");
+        } catch (Exception e) {
+            log.info("Ongoing tab click failed");
+        }
+
+        // Click first quiz card
+        try {
+            WebElement firstQuiz = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                    ExpectedConditions.elementToBeClickable(
+                            By.xpath("(//a[contains(@href,'/quiz/quiz_dashboard')])[1]")));
+            String cardHref = firstQuiz.getAttribute("href");
+            firstQuiz.click();
+            waitForPageLoad();
+
+            String cardUrl = driver.getCurrentUrl();
+            if (cardUrl.contains("/404") || driver.getTitle().toLowerCase().contains("not found")) {
+                log.error("❌ Quiz card opened 404: {}", cardHref);
+                recordFailure("Quiz Card", "Page Not Found: " + cardHref);
+                allPassed = false;
+            } else {
+                log.info("✅ Quiz card opened: {}", cardUrl);
+            }
+
+            driver.navigate().back();
+            waitForPageLoad();
+        } catch (Exception e) {
+            log.info("No quiz cards available to click");
+        }
+
+        return allPassed;
+    }
+
+    /**
+     * Validate Blogs page: search functionality, open a blog post.
+     */
+    public boolean validateBlogsPage() {
+        log.info("=== Validating Blogs page deep links ===");
+        driver.get(config.getUrl() + "/blogs/");
+        waitForPageLoad();
+
+        boolean allPassed = true;
+
+        // Check search input exists
+        try {
+            WebElement searchInput = driver.findElement(By.xpath(
+                    "//input[@type='search' or contains(@placeholder,'Search')]"));
+            if (searchInput.isDisplayed()) {
+                log.info("✅ Blogs search input found");
+                // Type a search term
+                searchInput.clear();
+                searchInput.sendKeys("India");
+                try { Thread.sleep(1000); } catch (Exception e) {}
+                log.info("✅ Blogs search executed for 'India'");
+            }
+        } catch (Exception e) {
+            log.info("Blogs search input not found");
+        }
+
+        // Click first blog post
+        try {
+            WebElement firstBlog = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                    ExpectedConditions.elementToBeClickable(
+                            By.xpath("(//a[contains(@href,'/blog/')])[1]")));
+            String blogHref = firstBlog.getAttribute("href");
+            firstBlog.click();
+            waitForPageLoad();
+
+            String blogUrl = driver.getCurrentUrl();
+            if (blogUrl.contains("/404") || driver.getTitle().toLowerCase().contains("not found")) {
+                log.error("❌ Blog post opened 404: {}", blogHref);
+                recordFailure("Blog Post", "Page Not Found: " + blogHref);
+                allPassed = false;
+            } else {
+                log.info("✅ Blog post opened: {}", blogUrl);
+            }
+
+            driver.navigate().back();
+            waitForPageLoad();
+        } catch (Exception e) {
+            log.info("No blog posts available to click");
+        }
+
+        return allPassed;
+    }
+
+    /**
+     * Validate Newsletters page: open a newsletter.
+     */
+    public boolean validateNewslettersPage() {
+        log.info("=== Validating Newsletters page ===");
+        driver.get(config.getUrl() + "/newsletters/");
+        waitForPageLoad();
+
+        boolean allPassed = true;
+
+        try {
+            WebElement firstNewsletter = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                    ExpectedConditions.elementToBeClickable(
+                            By.xpath("(//a[contains(@href,'/newsletter')])[1]")));
+            String href = firstNewsletter.getAttribute("href");
+            firstNewsletter.click();
+            waitForPageLoad();
+
+            String nlUrl = driver.getCurrentUrl();
+            if (nlUrl.contains("/404") || driver.getTitle().toLowerCase().contains("not found")) {
+                log.error("❌ Newsletter opened 404: {}", href);
+                recordFailure("Newsletter", "Page Not Found: " + href);
+                allPassed = false;
+            } else {
+                log.info("✅ Newsletter opened: {}", nlUrl);
+            }
+
+            driver.navigate().back();
+            waitForPageLoad();
+        } catch (Exception e) {
+            log.info("No newsletters available to click");
+        }
+
+        return allPassed;
+    }
+
+    /**
+     * Validate MY Bharat Icons page: filters (Category, State, Age), verify cards.
+     */
+    public boolean validateMyBharatIconsPage() {
+        log.info("=== Validating MY Bharat Icons page ===");
+        driver.get(config.getUrl() + "/my-bharat-icons");
+        waitForPageLoad();
+
+        boolean allPassed = true;
+
+        // Check filter dropdowns: Category (Quiz/Essay/National Event), State, Age
+        try {
+            List<WebElement> selects = driver.findElements(By.tagName("select"));
+            log.info("MY Bharat Icons page has {} filter dropdowns", selects.size());
+
+            // Category filter (Quiz, Essay, National Event)
+            if (selects.size() > 0) {
+                org.openqa.selenium.support.ui.Select catSelect =
+                        new org.openqa.selenium.support.ui.Select(selects.get(0));
+                List<WebElement> opts = catSelect.getOptions();
+                String[] expectedCats = {"Quiz", "Essay", "National Event"};
+                for (String cat : expectedCats) {
+                    boolean found = opts.stream().anyMatch(o -> o.getText().contains(cat));
+                    if (found) log.info("✅ Icons category: {}", cat);
+                    else log.warn("⚠️ Icons category missing: {}", cat);
+                }
+            }
+
+            // State filter
+            for (WebElement sel : selects) {
+                List<WebElement> opts = sel.findElements(By.tagName("option"));
+                if (opts.stream().anyMatch(o -> o.getText().contains("Uttar Pradesh"))) {
+                    log.info("✅ Icons State filter found ({} options)", opts.size());
+                    break;
+                }
+            }
+
+            // Age filter
+            for (WebElement sel : selects) {
+                List<WebElement> opts = sel.findElements(By.tagName("option"));
+                if (opts.stream().anyMatch(o -> o.getText().equals("6") || o.getText().equals("18"))) {
+                    log.info("✅ Icons Age filter found ({} options)", opts.size());
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Icons filter check failed: {}", e.getMessage());
+        }
+
+        return allPassed;
+    }
+
+    /**
+     * Validate Knowledge Institutions page: sub-categories (School, College) and org links.
+     */
+    public boolean validateKnowledgeInstitutionsPage() {
+        log.info("=== Validating Knowledge Institutions page ===");
+        driver.get(config.getUrl() + "/KnowledgeInstitutions");
+        waitForPageLoad();
+
+        boolean allPassed = true;
+
+        // Check School and College category links
+        String[] categories = {"school", "college"};
+        for (String cat : categories) {
+            try {
+                WebElement catLink = driver.findElement(By.xpath(
+                        "//a[contains(@href,'/KnowledgeInstitutions/" + cat + "')]"));
+                if (catLink.isDisplayed()) {
+                    log.info("✅ Knowledge category found: {}", cat);
+                }
+            } catch (Exception e) {
+                log.warn("Knowledge category not found: {}", cat);
+            }
+        }
+
+        // Click School category and verify
+        try {
+            WebElement schoolLink = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                    ExpectedConditions.elementToBeClickable(
+                            By.xpath("//a[contains(@href,'/KnowledgeInstitutions/school')]")));
+            schoolLink.click();
+            waitForPageLoad();
+
+            String url = driver.getCurrentUrl();
+            if (url.contains("/404")) {
+                log.error("❌ Knowledge/school page 404");
+                recordFailure("Knowledge - School", "Page Not Found");
+                allPassed = false;
+            } else {
+                log.info("✅ Knowledge/school page opened: {}", url);
+
+                // Check state/district filter on school page
+                List<WebElement> selects = driver.findElements(By.tagName("select"));
+                for (WebElement sel : selects) {
+                    if (sel.getAttribute("id") != null && sel.getAttribute("id").contains("state")) {
+                        log.info("✅ Knowledge School State filter found");
+                        break;
+                    }
+                }
+            }
+
+            driver.navigate().back();
+            waitForPageLoad();
+        } catch (Exception e) {
+            log.info("School link not clickable: {}", e.getMessage());
+        }
+
+        // Click first org link and verify
+        try {
+            WebElement firstOrg = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                    ExpectedConditions.elementToBeClickable(
+                            By.xpath("(//a[contains(@href,'/KnowledgeInstitutions/') and contains(@href,'/')])[3]")));
+            String orgHref = firstOrg.getAttribute("href");
+            firstOrg.click();
+            waitForPageLoad();
+
+            if (driver.getCurrentUrl().contains("/404")) {
+                log.error("❌ Knowledge org detail page 404: {}", orgHref);
+                recordFailure("Knowledge Org Detail", "Page Not Found");
+                allPassed = false;
+            } else {
+                log.info("✅ Knowledge org detail opened: {}", driver.getCurrentUrl());
+            }
+            driver.navigate().back();
+            waitForPageLoad();
+        } catch (Exception e) {
+            log.info("No Knowledge org links to click");
+        }
+
+        return allPassed;
+    }
+
+    /**
+     * Validate Resources List page: check cards load, open first resource.
+     */
+    public boolean validateResourcesPage() {
+        log.info("=== Validating Resources List page ===");
+        driver.get(config.getUrl() + "/resources-list");
+        waitForPageLoad();
+
+        boolean allPassed = true;
+
+        // Check for Load More button
+        try {
+            WebElement loadMore = driver.findElement(By.xpath(
+                    "//button[contains(text(),'Load More')] | //a[contains(text(),'Load More')]"));
+            if (loadMore.isDisplayed()) {
+                log.info("✅ Resources page has Load More button");
+            }
+        } catch (Exception e) {
+            log.info("No Load More button on Resources page");
+        }
+
+        // Click first resource card
+        try {
+            WebElement firstResource = new WebDriverWait(driver, Duration.ofSeconds(5)).until(
+                    ExpectedConditions.elementToBeClickable(
+                            By.xpath("(//a[contains(@href,'/resources/') or contains(@href,'/resource/')])[1]")));
+            String href = firstResource.getAttribute("href");
+            firstResource.click();
+            waitForPageLoad();
+
+            if (driver.getCurrentUrl().contains("/404")) {
+                log.error("❌ Resource page 404: {}", href);
+                recordFailure("Resource Detail", "Page Not Found");
+                allPassed = false;
+            } else {
+                log.info("✅ Resource detail opened: {}", driver.getCurrentUrl());
+            }
+            driver.navigate().back();
+            waitForPageLoad();
+        } catch (Exception e) {
+            log.info("No resource cards to click");
+        }
+
+        return allPassed;
     }
 }

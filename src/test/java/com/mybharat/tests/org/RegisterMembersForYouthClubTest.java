@@ -363,22 +363,32 @@ public class RegisterMembersForYouthClubTest {
             // Wait for page to fully load before interacting
             wait.until(d -> ((org.openqa.selenium.JavascriptExecutor) d)
                     .executeScript("return document.readyState").equals("complete"));
-            safeSleep(4000);
+            safeSleep(3000);
 
             // Close popup if present
             closePopup(driver);
             safeSleep(1000);
 
-            // Click Register Now → Register (Indian)
-            WebElement registerNow = wait.until(ExpectedConditions.elementToBeClickable(
-                    By.xpath("//span[@class='fontchange']")));
-            registerNow.click();
-            safeSleep(1000);
+            // Click Register Now → Register (Indian) with fallback to direct navigation
+            try {
+                WebElement registerNow = new WebDriverWait(driver, Duration.ofSeconds(30))
+                        .until(ExpectedConditions.elementToBeClickable(
+                                By.xpath("//span[@class='fontchange']")));
+                registerNow.click();
+                safeSleep(1000);
 
-            WebElement registerBtn = wait.until(ExpectedConditions.elementToBeClickable(
-                    By.xpath("//button[@class='btn btn_login lang_yuva_register_as_youth_btn fontchange']")));
-            registerBtn.click();
-            safeSleep(1000);
+                WebElement registerBtn = wait.until(ExpectedConditions.elementToBeClickable(
+                        By.xpath("//button[@class='btn btn_login lang_yuva_register_as_youth_btn fontchange']")));
+                registerBtn.click();
+                safeSleep(1000);
+            } catch (Exception navEx) {
+                // Fallback: direct navigation to registration page
+                log.warn("[Member {}] Register Now button not found, trying direct URL", memberNum);
+                driver.get(config.getUrl() + "/register");
+                wait.until(d -> ((org.openqa.selenium.JavascriptExecutor) d)
+                        .executeScript("return document.readyState").equals("complete"));
+                safeSleep(3000);
+            }
 
             // Step 2: Enter email and request OTP
             WebElement emailInput = wait.until(ExpectedConditions.visibilityOfElementLocated(
@@ -469,12 +479,12 @@ public class RegisterMembersForYouthClubTest {
         String mailbox = email.split("@")[0];
         log.info("[Member {}] Waiting for NEW OTP email (prevCount={})", memberNum, prevInboxCount);
 
-        // Wait for new email to arrive (poll every 3 seconds, max 45 seconds)
-        safeSleep(5000); // initial wait
+        // Wait for new email to arrive (poll every 2 seconds, max 30 seconds)
+        safeSleep(3000); // initial wait
 
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
-        for (int attempt = 1; attempt <= 12; attempt++) {
+        for (int attempt = 1; attempt <= 10; attempt++) {
             try {
                 org.apache.hc.client5.http.impl.classic.CloseableHttpClient client =
                         org.apache.hc.client5.http.impl.classic.HttpClients.createDefault();
@@ -492,10 +502,10 @@ public class RegisterMembersForYouthClubTest {
                 int currentCount = inbox.size();
 
                 if (currentCount <= prevInboxCount) {
-                    log.info("[Member {}] Waiting for new email (attempt {}/12, count={}/{})",
+                    log.info("[Member {}] Waiting for new email (attempt {}/10, count={}/{})",
                             memberNum, attempt, currentCount, prevInboxCount);
                     client.close();
-                    safeSleep(3000);
+                    safeSleep(2000);
                     continue;
                 }
 
