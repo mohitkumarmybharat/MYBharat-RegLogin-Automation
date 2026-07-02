@@ -239,8 +239,8 @@ public class LoginPage extends BasePage {
                     org.apache.hc.client5.http.impl.classic.HttpClients.createDefault();
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
-            // Poll for new email (max 45 seconds)
-            for (int attempt = 1; attempt <= 15; attempt++) {
+            // Poll for new email (max 30 seconds)
+            for (int attempt = 1; attempt <= 10; attempt++) {
                 Thread.sleep(3000);
 
                 org.apache.hc.client5.http.classic.methods.HttpPost listReq =
