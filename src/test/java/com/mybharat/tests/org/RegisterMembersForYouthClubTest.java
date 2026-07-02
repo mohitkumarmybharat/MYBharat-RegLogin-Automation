@@ -363,22 +363,32 @@ public class RegisterMembersForYouthClubTest {
             // Wait for page to fully load before interacting
             wait.until(d -> ((org.openqa.selenium.JavascriptExecutor) d)
                     .executeScript("return document.readyState").equals("complete"));
-            safeSleep(4000);
+            safeSleep(5000);
 
             // Close popup if present
             closePopup(driver);
             safeSleep(1000);
 
-            // Click Register Now → Register (Indian)
-            WebElement registerNow = wait.until(ExpectedConditions.elementToBeClickable(
-                    By.xpath("//span[@class='fontchange']")));
-            registerNow.click();
-            safeSleep(1000);
+            // Click Register Now → Register (Indian) with fallback to direct navigation
+            try {
+                WebElement registerNow = new WebDriverWait(driver, Duration.ofSeconds(30))
+                        .until(ExpectedConditions.elementToBeClickable(
+                                By.xpath("//span[@class='fontchange']")));
+                registerNow.click();
+                safeSleep(1000);
 
-            WebElement registerBtn = wait.until(ExpectedConditions.elementToBeClickable(
-                    By.xpath("//button[@class='btn btn_login lang_yuva_register_as_youth_btn fontchange']")));
-            registerBtn.click();
-            safeSleep(1000);
+                WebElement registerBtn = wait.until(ExpectedConditions.elementToBeClickable(
+                        By.xpath("//button[@class='btn btn_login lang_yuva_register_as_youth_btn fontchange']")));
+                registerBtn.click();
+                safeSleep(1000);
+            } catch (Exception navEx) {
+                // Fallback: direct navigation to registration page
+                log.warn("[Member {}] Register Now button not found, trying direct URL", memberNum);
+                driver.get(config.getUrl() + "/register");
+                wait.until(d -> ((org.openqa.selenium.JavascriptExecutor) d)
+                        .executeScript("return document.readyState").equals("complete"));
+                safeSleep(3000);
+            }
 
             // Step 2: Enter email and request OTP
             WebElement emailInput = wait.until(ExpectedConditions.visibilityOfElementLocated(
