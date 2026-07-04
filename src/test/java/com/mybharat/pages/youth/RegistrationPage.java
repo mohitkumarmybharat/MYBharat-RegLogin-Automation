@@ -260,7 +260,14 @@ public class RegistrationPage extends BasePage {
                         By.xpath("//p[contains(text(),'Your one-time password')]"));
                 String otpText = otpElement.getText();
                 // Extract OTP: "Your one-time password (OTP) for registering on My Bharat is XXXXXX."
-                java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\b(\\d{4,6})\\b").matcher(otpText);
+                // First try: "is XXXXXX" pattern
+                java.util.regex.Matcher m1 = java.util.regex.Pattern.compile("is\\s+(\\d{6})").matcher(otpText);
+                if (m1.find()) {
+                    otp = m1.group(1);
+                    break;
+                }
+                // Second try: any standalone 6-digit number
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\b(\\d{6})\\b").matcher(otpText);
                 if (m.find()) {
                     otp = m.group(1);
                     break;
