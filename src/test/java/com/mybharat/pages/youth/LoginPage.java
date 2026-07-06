@@ -249,7 +249,19 @@ public class LoginPage extends BasePage {
         String otp = null;
         for (int attempt = 1; attempt <= 6; attempt++) {
             try {
-                // Switch to mail iframe
+                // Switch to inbox iframe and click the FIRST (newest) email
+                try {
+                    driver.switchTo().frame("ifinbox");
+                    Thread.sleep(500);
+                    WebElement firstEmail = driver.findElement(By.cssSelector("div.m > button"));
+                    firstEmail.click();
+                    Thread.sleep(1000);
+                    driver.switchTo().defaultContent();
+                } catch (Exception ex) {
+                    driver.switchTo().defaultContent();
+                }
+
+                // Switch to mail iframe to read content
                 driver.switchTo().frame("ifmail");
                 Thread.sleep(1000);
 
