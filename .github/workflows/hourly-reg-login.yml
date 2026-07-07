@@ -94,7 +94,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Send email report
-        if: always() && steps.test_run.outcome == 'success'
+        if: always()
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
