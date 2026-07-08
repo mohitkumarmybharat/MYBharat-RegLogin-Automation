@@ -93,8 +93,8 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: Send email report
-        if: always()
+      - name: Send email report (ALL PASS → send to all seniors)
+        if: always() && steps.test_run.outcome == 'success'
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -103,7 +103,7 @@ jobs:
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: "${{ steps.result.outputs.status }} | Hourly Reg+Login | ${{ steps.result.outputs.timestamp }}"
-          to: ${{ secrets.SENIOR_EMAILS }}
+          to: poojagupta.dic@digitalindia.gov.in,satyavir@digitalindia.gov.in,nishantsharma.dic@digitalindia.gov.in,nishant.pal@digitalindia.gov.in,manoj.dic@digitalindia.gov.in,mohit.dic@digitalindia.gov.in
           from: "MY Bharat QA <${{ secrets.SMTP_USERNAME }}>"
           html_body: |
             <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -164,6 +164,53 @@ jobs:
                 </div>
               </div>
 
+              <div style="background: #f8f9fa; padding: 10px; text-align: center; border-radius: 0 0 8px 8px; border: 1px solid #e0e0e0; border-top: none;">
+                <p style="color: #888; font-size: 11px; margin: 0;">MY Bharat QA | Runs every 1 hour | GitHub Actions</p>
+              </div>
+            </div>
+
+      - name: Send failure email (FAIL/SKIP → send only to mohit)
+        if: always() && steps.test_run.outcome != 'success'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "${{ steps.result.outputs.status }} | Hourly Reg+Login | ${{ steps.result.outputs.timestamp }}"
+          to: mohit.dic@digitalindia.gov.in
+          from: "MY Bharat QA <${{ secrets.SMTP_USERNAME }}>"
+          html_body: |
+            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <div style="background: linear-gradient(135deg, #160363, #2d0a8f); padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h1 style="color: #fff; margin: 0; font-size: 20px;">MY Bharat — Hourly Health Check</h1>
+                <p style="color: #c4b5fd; margin: 5px 0 0; font-size: 12px;">Registration + Logout + Login (Production)</p>
+              </div>
+              <div style="background: #dc3545; padding: 12px; text-align: center;">
+                <h2 style="color: #fff; margin: 0; font-size: 18px;">${{ steps.result.outputs.status }}</h2>
+              </div>
+              <div style="padding: 20px; border: 1px solid #e0e0e0; border-top: none;">
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                  <tr><td style="padding: 6px; font-weight: bold;">Time:</td><td style="padding: 6px;">${{ steps.result.outputs.timestamp }}</td></tr>
+                  <tr style="background:#f9f9f9;"><td style="padding: 6px; font-weight: bold;">Environment:</td><td style="padding: 6px;">Production (https://mybharat.gov.in)</td></tr>
+                  <tr><td style="padding: 6px; font-weight: bold;">Registered Email:</td><td style="padding: 6px;">${{ steps.details.outputs.reg_email }}</td></tr>
+                </table>
+                <table style="width: 100%; border-collapse: collapse; text-align: center; margin-bottom: 15px;">
+                  <tr style="background: #160363; color: white;">
+                    <th style="padding: 8px;">Total</th><th style="padding: 8px;">Passed</th><th style="padding: 8px;">Failed</th><th style="padding: 8px;">Skipped</th>
+                  </tr>
+                  <tr style="font-size: 18px; font-weight: bold;">
+                    <td style="padding: 10px; border: 1px solid #ddd;">${{ steps.parse.outputs.total }}</td>
+                    <td style="padding: 10px; border: 1px solid #ddd; color: #28a745;">${{ steps.parse.outputs.passed }}</td>
+                    <td style="padding: 10px; border: 1px solid #ddd; color: #dc3545;">${{ steps.parse.outputs.failed }}</td>
+                    <td style="padding: 10px; border: 1px solid #ddd; color: #ffc107;">${{ steps.parse.outputs.skipped }}</td>
+                  </tr>
+                </table>
+                <div style="text-align: center; margin: 20px 0;">
+                  <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" style="background: #160363; color: white; padding: 10px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 13px;">View Full Logs</a>
+                </div>
+              </div>
               <div style="background: #f8f9fa; padding: 10px; text-align: center; border-radius: 0 0 8px 8px; border: 1px solid #e0e0e0; border-top: none;">
                 <p style="color: #888; font-size: 11px; margin: 0;">MY Bharat QA | Runs every 1 hour | GitHub Actions</p>
               </div>
